@@ -150,7 +150,7 @@ namespace pvpgn
 						   it when sending a dotted-quad to gethostbyname().  This is
 						   good enough when that fails. */
 			}
-			eventlog(eventlog_level_error, __FUNCTION__, "could not lookup host \"%s\"", hoststr);
+			eventlog(eventlog_level_error, __FUNCTION__, "could not lookup host \"{}\"", hoststr);
 			return NULL;
 		}
 
@@ -219,7 +219,7 @@ namespace pvpgn
 					if (!(sp = getservbyname(portstr, protstr ? protstr : "tcp")))
 #endif
 					{
-						eventlog(eventlog_level_error, __FUNCTION__, "could not convert \"%s\" to a port number", portstr);
+						eventlog(eventlog_level_error, __FUNCTION__, "could not convert \"{}\" to a port number", portstr);
 						xfree(tstr);
 						return NULL;
 					}
@@ -234,20 +234,23 @@ namespace pvpgn
 		else
 			port = defport;
 
+		char addrstr[INET_ADDRSTRLEN] = {};
+
 		if (tstr[0] != '\0')
+		{
 			hoststr = tstr;
+		}
 		else
 		{
-			struct sockaddr_in tsa;
-
+			struct sockaddr_in tsa {};
 			tsa.sin_addr.s_addr = htonl(defipaddr);
-			char addrstr[INET_ADDRSTRLEN] = { 0 };
+			
 			hoststr = inet_ntop(AF_INET, &(tsa.sin_addr), addrstr, sizeof(addrstr));
 		}
 
 		if (!(hostname = host_lookup(hoststr, &ipaddr)))
 		{
-			eventlog(eventlog_level_error, __FUNCTION__, "could not lookup host \"%s\"", hoststr);
+			eventlog(eventlog_level_error, __FUNCTION__, "could not lookup host \"{}\"", hoststr);
 			xfree(tstr);
 			return NULL;
 		}
@@ -447,7 +450,7 @@ namespace pvpgn
 		{
 			if (netmask > 32)
 			{
-				eventlog(eventlog_level_error, __FUNCTION__, "network bits must be less than or equal to 32 (%u)", netmask);
+				eventlog(eventlog_level_error, __FUNCTION__, "network bits must be less than or equal to 32 ({})", netmask);
 				xfree(netaddr);
 				xfree(temp);
 				return NULL;

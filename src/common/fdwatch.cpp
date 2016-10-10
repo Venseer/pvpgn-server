@@ -57,7 +57,7 @@ namespace pvpgn
 		maxsys = get_socket_limit();
 		if (maxsys > 0) maxcons = (maxcons < maxsys) ? maxcons : maxsys;
 		if (maxcons < 32) {
-			eventlog(eventlog_level_fatal, __FUNCTION__, "too few sockets available (%d)", maxcons);
+			eventlog(eventlog_level_fatal, __FUNCTION__, "too few sockets available ({})", maxcons);
 			return -1;
 		}
 		fdw_maxcons = maxcons;
@@ -100,7 +100,7 @@ namespace pvpgn
 		}
 #endif
 
-		FATAL0("Found no working fdwatch layer");
+		eventlog(eventlog_level_fatal, __FUNCTION__, "Found no working fdwatch layer");
 		fdw = NULL;
 		fdwatch_close();
 		return -1;
@@ -140,7 +140,7 @@ namespace pvpgn
 	extern int fdwatch_update_fd(int idx, unsigned rw)
 	{
 		if (idx < 0 || idx >= fdw_maxcons) {
-			ERROR2("out of bounds idx [%d] (max: %d)", idx, fdw_maxcons);
+			ERROR2("out of bounds idx [{}] (max: {})", idx, fdw_maxcons);
 			return -1;
 		}
 		/* do not allow completly reset the access because then backend codes
@@ -164,7 +164,7 @@ namespace pvpgn
 	extern int fdwatch_del_fd(int idx)
 	{
 		if (idx < 0 || idx >= fdw_maxcons) {
-			ERROR2("out of bounds idx [%d] (max: %d)", idx, fdw_maxcons);
+			ERROR2("out of bounds idx [{}] (max: {})", idx, fdw_maxcons);
 			return -1;
 		}
 

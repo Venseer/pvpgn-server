@@ -206,7 +206,7 @@ namespace pvpgn
 
 					if (!doc.load_file(lang_filename))
 					{
-						ERROR1("could not parse localization file \"%s\"", lang_filename);
+						ERROR1("could not parse localization file \"{}\"", lang_filename);
 						xfree((void*)lang_filename);
 						continue;
 					}
@@ -242,7 +242,7 @@ namespace pvpgn
 						else
 						{
 							translate = original;
-							//WARN2("could not find translate reference refid=\"%s\", use original string (%s)", attr.value(), lang_filename.c_str());
+							//WARN2("could not find translate reference refid=\"{}\", use original string ({})", attr.value(), lang_filename.c_str());
 						}
 					}
 					else
@@ -251,13 +251,13 @@ namespace pvpgn
 						if (translate[0] == '\0')
 						{
 							translate = original;
-							//WARN2("empty translate for \"%s\", use original string (%s)", original.c_str(), lang_filename.c_str());
+							//WARN2("empty translate for \"{}\", use original string ({})", original.c_str(), lang_filename.c_str());
 						}
 					}
 					translations[original][languages[i]] = translate;
 				}
 
-				INFO1("localization file loaded \"%s\"", lang_filename);
+				INFO1("localization file loaded \"{}\"", lang_filename);
 				xfree((void*)lang_filename);
 			}
 
@@ -283,14 +283,14 @@ namespace pvpgn
 				output = fmt::format(format, args);
 
 				char tmp[MAX_MESSAGE_LEN];
-				strcpy(tmp, output.c_str());
+				std::snprintf(tmp, sizeof tmp, "%s", output.c_str());
 
 				i18n_convert(c, tmp);
 				output = tmp;
 			}
 			catch (const std::exception& e)
 			{
-				WARN2("Can't format translation string \"%s\" (%s)", fmt, e.what());
+				WARN2("Can't format translation string \"{}\" ({})", fmt, e.what());
 			}
 
 			return output;

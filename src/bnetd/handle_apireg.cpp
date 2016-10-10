@@ -391,7 +391,7 @@ namespace pvpgn
 				*param++ = '\0';
 
 
-			eventlog(eventlog_level_debug, __FUNCTION__, "[%d] got \"%s\" [%s]", conn_get_socket(conn), tag, ((param) ? (param) : ("")));
+			eventlog(eventlog_level_debug, __FUNCTION__, "[{}] got \"{}\" [{}]", conn_get_socket(conn), tag, ((param) ? (param) : ("")));
 
 			if (handle_apireg_tag(apiregmember, tag, param) != -1) {}
 			xfree(line);
@@ -420,7 +420,9 @@ namespace pvpgn
 
 			data = conn_get_ircline(conn); /* fetch current status */
 			if (data)
-				std::strcpy(apiregline, data);
+			{
+				std::snprintf(apiregline, sizeof apiregline, "%s", data);
+			}
 
 			unsigned apiregpos = std::strlen(apiregline);
 			data = (const char *)packet_get_raw_data_const(packet, 0);
@@ -440,10 +442,10 @@ namespace pvpgn
 						apiregline[apiregpos++] = data[i];
 					else {
 						apiregpos++; /* for the statistic :) */
-						WARN2("[%d] client exceeded maximum allowed message length by %d characters", conn_get_socket(conn), apiregpos - MAX_IRC_MESSAGE_LEN);
+						WARN2("[{}] client exceeded maximum allowed message length by {} characters", conn_get_socket(conn), apiregpos - MAX_IRC_MESSAGE_LEN);
 						if (apiregpos > 100 + MAX_IRC_MESSAGE_LEN) {
 							/* automatic flood protection */
-							ERROR1("[%d] excess flood", conn_get_socket(conn));
+							ERROR1("[{}] excess flood", conn_get_socket(conn));
 							return -1;
 						}
 					}
@@ -455,29 +457,29 @@ namespace pvpgn
 
 		static int apireg_send(t_connection * conn, char const * command)
 		{
-			t_packet * p;
 			char data[MAX_IRC_MESSAGE_LEN + 1];
 			unsigned len = 0;
 			t_elem * curr;
-
-			p = packet_create(packet_class_raw);
 
 			if (command)
 				len = (std::strlen(command));
 
 			if (len > MAX_IRC_MESSAGE_LEN) {
-				ERROR1("message to send is too large (%u bytes)", len);
+				ERROR1("message to send is too large ({} bytes)", len);
 				return -1;
 			}
 			else {
 				std::sprintf(data, "%s", command);
 			}
 
-			packet_set_size(p, 0);
-			packet_append_data(p, data, len);
-			DEBUG2("[%d] sent \"%s\"", conn_get_socket(conn), data);
-			conn_push_outqueue(conn, p);
-			packet_del_ref(p);
+			{
+				t_packet* const p = packet_create(packet_class_raw);
+				packet_set_size(p, 0);
+				packet_append_data(p, data, len);
+				DEBUG2("[{}] sent \"{}\"", conn_get_socket(conn), data);
+				conn_push_outqueue(conn, p);
+				packet_del_ref(p);
+			}
 
 			/* In apiregister server we must destroy apiregmember and connection after send packet */
 
@@ -823,7 +825,7 @@ namespace pvpgn
 			//   	if (!email)
 			//   	   snprintf(email,sizeof(email),"((Email))");
 
-			DEBUG3("APIREG:/%s/%s/%s/", apiregmember_get_request(apiregmember), apiregmember_get_newnick(apiregmember), apiregmember_get_newpass(apiregmember));
+			DEBUG3("APIREG:/{}/{}/{}/", apiregmember_get_request(apiregmember), apiregmember_get_newnick(apiregmember), apiregmember_get_newpass(apiregmember));
 
 			if ((request) && (std::strcmp(apiregmember_get_request(apiregmember), REQUEST_AGEVERIFY) == 0)) {
 				std::snprintf(data, sizeof(data), "HRESULT=%s\nMessage=%s\nNewNick=((NewNick))\nNewPass=((NewPass))\n", hresult, message);
@@ -869,7 +871,7 @@ namespace pvpgn
 							return 0;
 						}
 						else {
-							eventlog(eventlog_level_debug, __FUNCTION__, "WOLHASH: %s", wol_pass_hash);
+							eventlog(eventlog_level_debug, __FUNCTION__, "WOLHASH: {}", wol_pass_hash);
 							account_set_wol_apgar(tempacct, wol_pass_hash);
 							if (apiregmember_get_email(apiregmember))
 								account_set_email(tempacct, apiregmember_get_email(apiregmember));
@@ -884,12 +886,15 @@ namespace pvpgn
 			}
 			else {
 				/* Error: Unknown request - closing connection */
-				ERROR1("got UNKNOWN request /%s/ closing connection", apiregmember->request);
+				ERROR1("got UNKNOWN request /{}/ closing connection", apiregmember->request);
 				LIST_TRAVERSE(apireglist(), curr) {
 					t_apiregmember * apiregmemberlist = (t_apiregmember*)elem_get_data(curr);
 
 					if (conn == apiregmember_get_conn(apiregmemberlist))
+					{
 						apiregmember_destroy(apiregmember, &curr);
+						break;
+					}
 				}
 
 				conn_set_state(conn, conn_state_destroy);

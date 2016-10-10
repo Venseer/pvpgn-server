@@ -19,12 +19,12 @@
 #include "common/setup_before.h"
 #include "character.h"
 
+#include <cstdint>
 #include <cstring>
 
 #include "compat/strcasecmp.h"
 #include "common/eventlog.h"
 #include "common/list.h"
-#include "compat/uint.h"
 #include "common/bnet_protocol.h"
 #include "account.h"
 #include "account_wrap.h"
@@ -43,7 +43,7 @@ namespace pvpgn
 		static t_list * characterlist_head = NULL;
 
 
-		static t_character_class bncharacter_class_to_character_class(t_uint8 cclass)
+		static t_character_class bncharacter_class_to_character_class(std::uint8_t cclass)
 		{
 			switch (cclass)
 			{
@@ -185,7 +185,7 @@ namespace pvpgn
 		{
 			char const * data_in_hex;
 
-			eventlog(eventlog_level_debug, __FUNCTION__, "Initial Data for %s, %s %s",
+			eventlog(eventlog_level_debug, __FUNCTION__, "Initial Data for {}, {} {}",
 				character->name,
 				character_expansion_to_expansionname(expansion),
 				character_class_to_classname(chclass));
@@ -257,46 +257,49 @@ namespace pvpgn
 
 		extern int character_create(t_account * account, t_clienttag clienttag, char const * realmname, char const * name, t_character_class chclass, t_character_expansion expansion)
 		{
-			t_character * ch;
-
 			if (!account)
 			{
 				eventlog(eventlog_level_error, __FUNCTION__, "got NULL account");
 				return -1;
 			}
+
 			if (!clienttag)
 			{
 				eventlog(eventlog_level_error, __FUNCTION__, "got bad clienttag");
 				return -1;
 			}
+
 			if (!realmname)
 			{
 				eventlog(eventlog_level_error, __FUNCTION__, "got NULL realmname");
 				return -1;
 			}
+
 			if (!name)
 			{
 				eventlog(eventlog_level_error, __FUNCTION__, "got NULL name");
 				return -1;
 			}
 
-			ch = (t_character*)xmalloc(sizeof(t_character));
+			if (account_check_closed_character(account, clienttag, realmname, name))
+			{
+				eventlog(eventlog_level_error, __FUNCTION__, "a character with the name \"{}\" does already exist in realm \"{}\"", name, realmname);
+				return -1;
+			}
+
+			t_character* ch = (t_character*)xmalloc(sizeof(t_character));
 			ch->name = xstrdup(name);
 			ch->realmname = xstrdup(realmname);
 			ch->guildname = xstrdup(""); /* FIXME: how does this work on Battle.net? */
 
-			if (account_check_closed_character(account, clienttag, realmname, name))
-			{
-				eventlog(eventlog_level_error, __FUNCTION__, "a character with the name \"%s\" does already exist in realm \"%s\"", name, realmname);
-				xfree((void *)ch->realmname); /* avoid warning */
-				xfree((void *)ch->name); /* avoid warning */
-				xfree(ch);
-				return -1;
-			}
-
 			load_initial_data(ch, chclass, expansion);
 
 			account_add_closed_character(account, clienttag, ch);
+
+			xfree((void *)ch->name);
+			xfree((void *)ch->realmname);
+			xfree((void *)ch->guildname);
+			xfree(ch);
 
 			return 0;
 		}
@@ -432,7 +435,7 @@ namespace pvpgn
 			{
 				if (!tok2)
 				{
-					eventlog(eventlog_level_error, __FUNCTION__, "bad character list \"%s\"", temp);
+					eventlog(eventlog_level_error, __FUNCTION__, "bad character list \"{}\"", temp);
 					break;
 				}
 

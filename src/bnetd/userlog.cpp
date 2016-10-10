@@ -17,12 +17,14 @@
 */
 #include "common/setup_before.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cerrno>
-#include <cstring>
-#include <cstdlib>
 #include <cmath>
-#include <algorithm>
+#include <cstdlib>
+#include <cstring>
+#include <stdexcept>
+#include <string>
 
 #include "compat/strcasecmp.h"
 #include "compat/pdir.h"
@@ -87,7 +89,7 @@ namespace pvpgn
 			size_t cglistlen = std::strlen(cglist);
 
 			// convert string groups from config to integer
-			for (int i = 0; i < cglistlen; i++)
+			for (std::size_t i = 0; i < cglistlen; i++)
 			{
 				if (cglist[i] == '1') groups |= 1;
 				else if (cglist[i] == '2') groups |= 2;
@@ -138,7 +140,7 @@ namespace pvpgn
 				std::strftime(time_string, USEREVENT_TIME_MAXLEN, USEREVENT_TIME_FORMAT, tmnow);
 
 
-			char * filename = userlog_filename(account_get_name(account), true);
+			const char* const filename = userlog_filename(account_get_name(account), true);
 
 			if (FILE *fp = fopen(filename, "a"))
 			{
@@ -148,85 +150,93 @@ namespace pvpgn
 			}
 			else
 			{
-				ERROR1("could not write into user log file \"%s\"", filename);
+				ERROR1("could not write into user log file \"{}\"", filename);
 			}
+
+			xfree((void*)filename);
 		}
 
 		// read "count" lines from the end starting from "startline"
-		extern std::map<long, char*> userlog_read(const char * username, long startline, const char * search_substr)
+		extern std::map<long, char*> userlog_read(const char* username, long startline, const char* search_substr)
 		{
-			std::map<long, char*> lines;
+			if (!username)
+				throw std::runtime_error("username is a nullptr");
 
+			FILE* fp = nullptr;
+			{
+				const char* const filename = userlog_filename(username);
+				fp = std::fopen(filename, "r");
+				xfree((void*)filename);
+			}
+			if (!fp)
+				throw std::runtime_error("Could not open userlog");
+
+			// set position to the end of file
+			std::fseek(fp, 0, SEEK_END);
+
+			long pos = std::ftell(fp);
+			int c = {}, prev_c = {};
+			std::map<long, char*> lines;
 			long linecount = 0;
-			char line[MAX_MESSAGE_LEN+1];
+			char line[MAX_MESSAGE_LEN + 1] = {};
 			int linepos = 0;
 
-			char c, prev_c = 0;
-			long pos;
-
-			size_t search_substrlen = std::strlen(search_substr);
-
-			char * filename = userlog_filename(username);
-			if (FILE *fp = fopen(filename, "r"))
+			// read file in reverse, byte by byte
+			do
 			{
-				// set position to the end of file
-				fseek(fp, 0, SEEK_END);
-				pos = ftell(fp);
+				pos--;
+				std::fseek(fp, pos, SEEK_SET);
+				c = std::fgetc(fp);
 
-				// read file reversely by byte
-				do {
-					pos--;
-					fseek(fp, pos, SEEK_SET);
-					c = fgetc(fp);
+				// add char into line array
+				if (c != '\n')
+					line[linepos] = c;
 
-					// add char into line array
-					if (c != '\n')
-						line[linepos] = c;
-
-					// end of line (or start of file)
-					if ((c == '\n' && c != prev_c) || pos == -1)
+				// end of line (or start of file)
+				if ((c == '\n' && c != prev_c) || pos == -1)
+				{
+					// hack for large lines (instead we will receive cut line without start symbols)
+					if (linepos == MAX_MESSAGE_LEN)
 					{
-						// hack for large lines (instead we will receive cut line without start symbols)
-						if (linepos == MAX_MESSAGE_LEN)
-						{
-							// return carriage to read whole line to(from) start
-							pos = pos + MAX_MESSAGE_LEN;
-							linepos = 0;
-						}
-						if (linepos > 0)
-						{
-							line[linepos] = '\0'; // set end of string
-							strreverse(line);
-
-							linepos = 0; // reset position inside line
-
-							linecount++;
-							if (linecount >= startline)
-							{
-								if (search_substr && search_substrlen > 0)
-								{
-									if (find_substr(line, search_substr))
-										lines[linecount] = xstrdup(line);
-								}
-								else
-								{
-									lines[linecount] = xstrdup(line);
-								}
-							}
-
-							// limitation of results
-							if (lines.size() >= userlog_max_output_lines)
-								break;
-						}
+						// return carriage to read whole line to(from) start
+						pos = pos + MAX_MESSAGE_LEN;
+						linepos = 0;
 					}
-					prev_c = c;
-					if (c != '\n' && linepos < MAX_MESSAGE_LEN)
-						linepos++;
 
-				} while (c != EOF);
+					if (linepos > 0)
+					{
+						line[linepos] = '\0'; // set end of string
+						strreverse(line);
 
-				fclose(fp);
-			}
+						linepos = 0; // reset position inside line
+
+						linecount++;
+						if (linecount >= startline)
+						{
+							if (search_substr && std::strlen(search_substr) > 0)
+							{
+								if (find_substr(line, search_substr))
+									lines[linecount] = xstrdup(line);
+							}
+							else
+							{
+								lines[linecount] = xstrdup(line);
+							}
+						}
+
+						// limitation of results
+						if (lines.size() >= userlog_max_output_lines)
+							break;
+					}
+				}
+				prev_c = c;
+				if (c != '\n' && linepos < MAX_MESSAGE_LEN)
+					linepos++;
+
+			} while (c != EOF);
+
+			std::fclose(fp);
+
 			return lines;
 		}
 
@@ -257,7 +267,7 @@ namespace pvpgn
 				// create inside user dir
 				if (stat(filepath, &statbuf) == -1) {
 					p_mkdir(filepath, S_IRWXU | S_IRWXG | S_IRWXO);
-					eventlog(eventlog_level_info, __FUNCTION__, "created user directory: %s", filepath);
+					eventlog(eventlog_level_info, __FUNCTION__, "created user directory: {}", filepath);
 				}
 			}
 
@@ -306,7 +316,15 @@ namespace pvpgn
 				if (!args[3].empty())
 					startline = atoi(args[3].c_str());
 
-				lines = userlog_read(username, startline);
+				try
+				{
+					lines = userlog_read(username, startline);
+				}
+				catch (...)
+				{
+					message_send_text(c, message_type_error, c, "Could not read user log");
+					return 0;
+				}
 			}
 			// find
 			else if (subcommand[0] == 'f')

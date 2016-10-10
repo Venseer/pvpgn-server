@@ -21,56 +21,56 @@
 #include "common/setup_before.h"
 #include "gui_printf.h"
 
+#include <cstdarg>
+#include <cwchar>
+
 #include <windows.h>
 #include <richedit.h>
-#include <cstdarg>
+
 #include "common/eventlog.h"
+#include <common/format.h>
 #include "common/setup_after.h"
 
 namespace pvpgn
 {
 
-	HWND		ghwndConsole;
+	HWND ghwndConsole;
 
 	static void guiAddText(const char *str, COLORREF clr)
 	{
-		int text_length;
-		CHARRANGE cr;
-		CHARRANGE ds;
-		CHARFORMAT fmt;
-
-		text_length = SendMessage(ghwndConsole, WM_GETTEXTLENGTH, 0, 0);
+		int text_length = SendMessageW(ghwndConsole, WM_GETTEXTLENGTH, 0, 0);
 
 		if (text_length > 30000)
 		{
+			CHARRANGE ds = {};
 			ds.cpMin = 0;
 			ds.cpMax = text_length - 30000;
-			SendMessage(ghwndConsole, EM_EXSETSEL, 0, (LPARAM)&ds);
-			SendMessage(ghwndConsole, EM_REPLACESEL, FALSE, 0);
+			SendMessageW(ghwndConsole, EM_EXSETSEL, 0, (LPARAM)&ds);
+			SendMessageW(ghwndConsole, EM_REPLACESEL, FALSE, 0);
 		}
 
+		CHARRANGE cr = {};
 		cr.cpMin = text_length;
 		cr.cpMax = text_length;
-		SendMessage(ghwndConsole, EM_EXSETSEL, 0, (LPARAM)&cr);
+		SendMessageW(ghwndConsole, EM_EXSETSEL, 0, (LPARAM)&cr);
 
-		fmt.cbSize = sizeof(CHARFORMAT);
+		CHARFORMATW fmt = {};
+		fmt.cbSize = sizeof(CHARFORMATW);
 		fmt.dwMask = CFM_COLOR | CFM_FACE | CFM_SIZE | CFM_BOLD | CFM_ITALIC | CFM_STRIKEOUT | CFM_UNDERLINE;
 		fmt.yHeight = 160;
 		fmt.dwEffects = 0;
 		fmt.crTextColor = clr;
-		strcpy(fmt.szFaceName, "Courier New");
+		std::swprintf(fmt.szFaceName, sizeof fmt.szFaceName / sizeof *fmt.szFaceName, L"%ls", L"Courier New");
 
-		SendMessage(ghwndConsole, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&fmt);
-		SendMessage(ghwndConsole, EM_REPLACESEL, FALSE, (LPARAM)str);
+		SendMessageW(ghwndConsole, EM_SETCHARFORMAT, SCF_SELECTION, (LPARAM)&fmt);
+		SendMessageA(ghwndConsole, EM_REPLACESEL, FALSE, (LPARAM)str);
 	}
 
-	extern int gui_lvprintf(t_eventlog_level l, const char *format, va_list arglist)
+	//template <typename... Args>
+	//void gui_lvprintf(t_eventlog_level l, const char* format, const Args& ... args)
+	void gui_lvprintf(t_eventlog_level l, const char* format, fmt::ArgList args)
 	{
-		char buff[8192];
-		int result;
 		COLORREF clr;
-
-		result = vsprintf(buff, format, arglist);
 
 		switch (l)
 		{
@@ -98,24 +98,8 @@ namespace pvpgn
 		default:
 			clr = RGB(0, 0, 0);
 		}
-		guiAddText(buff, clr);
-		return result;
+
+		guiAddText(fmt::format(format, args).c_str(), clr);
 	}
-
-	extern int gui_lprintf(t_eventlog_level l, const char *format, ...)
-	{
-		va_list arglist;
-		va_start(arglist, format);
-
-		return gui_lvprintf(l, format, arglist);
-	}
-
-	extern int gui_printf(const char *format, ...)
-	{
-		va_list arglist;
-		va_start(arglist, format);
-		return gui_lvprintf(eventlog_level_error, format, arglist);
-	}
-
 }
 #endif

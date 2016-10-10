@@ -17,7 +17,7 @@
  */
 #ifdef WITH_SQL_ODBC
 #include "common/setup_before.h"
-#ifdef WIN32
+#ifdef HAVE_WINDOWS_H
 # include <windows.h>
 #endif
 #include <sqlext.h>
@@ -93,14 +93,14 @@ namespace pvpgn
 #define p_SQLAllocConnect	SQLAllocConnect
 #define p_SQLAllocStmt		SQLAllocStmt
 #define p_SQLBindCol		SQLBindCol
-#define p_SQLColAttribute	SQLColAttribute
-#define p_SQLConnect		SQLConnect
+#define p_SQLColAttribute	SQLColAttributeA
+#define p_SQLConnect		SQLConnectA
 #define p_SQLDisconnect		SQLDisconnect
-#define p_SQLExecDirect		SQLExecDirect
+#define p_SQLExecDirect		SQLExecDirectA
 #define p_SQLFetch		SQLFetch
 #define p_SQLFreeHandle		SQLFreeHandle
 #define p_SQLRowCount		SQLRowCount
-#define p_SQLGetDiagRec		SQLGetDiagRec
+#define p_SQLGetDiagRec		SQLGetDiagRecA
 #define p_SQLNumResultCols	SQLNumResultCols
 #else
 		/* RUNTIME_LIBS */
@@ -173,7 +173,7 @@ namespace pvpgn
 		{
 #ifdef RUNTIME_LIBS
 			if (odbc_load_dll()) {
-				eventlog(eventlog_level_error, __FUNCTION__, "error loading library file \"%s\"", ODBC_LIB);
+				eventlog(eventlog_level_error, __FUNCTION__, "error loading library file \"{}\"", ODBC_LIB);
 				return -1;
 			}
 #endif
@@ -186,10 +186,10 @@ namespace pvpgn
 				return odbc_Fail();
 			}
 			if (odbc_Result(p_SQLConnect(con, (SQLCHAR*)name, SQL_NTS, (SQLCHAR*)user, SQL_NTS, (SQLCHAR*)pass, SQL_NTS))) {
-				eventlog(eventlog_level_debug, __FUNCTION__, "Connected to ODBC datasource \"%s\".", name);
+				eventlog(eventlog_level_debug, __FUNCTION__, "Connected to ODBC datasource \"{}\".", name);
 			}
 			else {
-				eventlog(eventlog_level_error, __FUNCTION__, "Unable to connect to ODBC datasource \"%s\".", name);
+				eventlog(eventlog_level_error, __FUNCTION__, "Unable to connect to ODBC datasource \"{}\".", name);
 				odbc_Error(SQL_HANDLE_DBC, con, eventlog_level_error, __FUNCTION__);
 				return odbc_Fail();
 			}
@@ -230,7 +230,7 @@ namespace pvpgn
 				eventlog(eventlog_level_error, __FUNCTION__, "Got a NULL query!");
 				return NULL;
 			}
-			//	eventlog(eventlog_level_trace, __FUNCTION__, "%s", query);
+			//	eventlog(eventlog_level_trace, __FUNCTION__, "{}", query);
 
 			/* Run query and check for success. */
 			p_SQLAllocStmt(con, &stmt);
@@ -274,7 +274,7 @@ namespace pvpgn
 				return res;
 			}
 			else if (!odbc_Result(result)) {
-				eventlog(eventlog_level_error, __FUNCTION__, "Unable to fetch row - ODBC error %i.", result);
+				eventlog(eventlog_level_error, __FUNCTION__, "Unable to fetch row - ODBC error {}.", result);
 				odbc_Error(SQL_HANDLE_STMT, stmt, eventlog_level_error, __FUNCTION__);
 				sql_odbc_free_result(res);
 				return NULL;
@@ -292,7 +292,7 @@ namespace pvpgn
 				eventlog(eventlog_level_error, __FUNCTION__, "Got a NULL query!");
 				return -1;
 			}
-			//	eventlog(eventlog_level_trace, __FUNCTION__, "%s", query);
+			//	eventlog(eventlog_level_trace, __FUNCTION__, "{}", query);
 
 			p_SQLAllocStmt(con, &stmt);
 			result = odbc_Result(p_SQLExecDirect(stmt, (SQLCHAR*)query, SQL_NTS));
@@ -387,18 +387,21 @@ namespace pvpgn
 				return NULL;
 			}
 			fields[fieldCount] = NULL;
-			for (i = 0; i < fieldCount; i++) {
-				TCHAR *fName;
-				TCHAR *tmp;
+			for (i = 0; i < fieldCount; i++)
+			{
 				SQLSMALLINT fNameSz;
 				p_SQLColAttribute(res->stmt, i + 1, SQL_DESC_NAME, NULL, 0, &fNameSz, NULL);
-				fName = (TCHAR *)xmalloc(fNameSz);
-				if (!fName) {
+				char* fName = (char*)xmalloc(fNameSz);
+				if (!fName)
+				{
 					return NULL;
 				}
 				p_SQLColAttribute(res->stmt, i + 1, SQL_DESC_NAME, fName, fNameSz, &fNameSz, NULL);
-				tmp = fName;
-				for (; *tmp; ++tmp) *tmp = safe_toupper(*tmp);
+				char* tmp = fName;
+				for (; *tmp; ++tmp)
+				{
+					*tmp = safe_toupper(*tmp);
+				}
 				fields[i] = fName;
 			}
 			return fields;
@@ -450,12 +453,13 @@ namespace pvpgn
 			row[fieldCount] = NULL;
 			sizes = (SQLINTEGER *)xcalloc(sizeof *sizes, fieldCount);
 
-			for (i = 0; i < fieldCount; i++) {
-				TCHAR *cell;
+			for (i = 0; i < fieldCount; i++)
+			{
 				SQLLEN cellSz;
 				p_SQLColAttribute(stmt, i + 1, SQL_DESC_DISPLAY_SIZE, NULL, 0, NULL, &cellSz);
-				cell = (TCHAR *)xcalloc(sizeof *cell, ++cellSz);
-				if (!cell) {
+				char* cell = (char*)xcalloc(sizeof *cell, ++cellSz);
+				if (!cell)
+				{
 					return NULL;
 				}
 				p_SQLBindCol(stmt, i + 1, SQL_C_CHAR, cell, cellSz, &sizes[i]);
@@ -483,7 +487,7 @@ namespace pvpgn
 			while (p_SQLGetDiagRec(type, obj, ++i, NULL, NULL, NULL, 0, &mTextLen) != SQL_NO_DATA) {
 				SQLCHAR *mText = (SQLCHAR *)xcalloc(sizeof *mText, ++mTextLen);
 				p_SQLGetDiagRec(type, obj, i, mState, &native, mText, mTextLen, NULL);
-				eventlog(level, function, "ODBC Error: State %s, Native %i: %s", mState, native, mText);
+				eventlog(level, function, "ODBC Error: State {}, Native {}: {}", mState, native, mText);
 				xfree(mText);
 			}
 		}

@@ -619,7 +619,7 @@ namespace pvpgn
 			}
 
 			message_send_text(c, message_type_error, c, localize(c, "Unknown command."));
-			eventlog(eventlog_level_debug, __FUNCTION__, "got unknown command \"%s\"", text);
+			eventlog(eventlog_level_debug, __FUNCTION__, "got unknown command \"{}\"", text);
 			return -1;
 		}
 
@@ -774,7 +774,7 @@ namespace pvpgn
 						msgtemp = localize(c, "You are now a clan member of {}", clan_get_name(clan));
 						message_send_text(c, message_type_info, c, msgtemp);
 						if (created > 0) {
-							DEBUG1("clan %s has already been created", clan_get_name(clan));
+							DEBUG1("clan {} has already been created", clan_get_name(clan));
 							return -1;
 						}
 						created++;
@@ -1917,7 +1917,7 @@ namespace pvpgn
 				return -1;
 			}
 
-			std::strcpy(msgtemp0, localize(c, "Users in channel {}:", cname).c_str());
+			std::snprintf(msgtemp0, sizeof msgtemp0, "%s", localize(c, "Users in channel {}:", cname).c_str());
 			i = std::strlen(msgtemp0);
 			for (conn = channel_get_first(channel); conn; conn = channel_get_next())
 			{
@@ -2734,6 +2734,9 @@ namespace pvpgn
 					}
 				}
 			}
+
+			message_destroy(message);
+
 			return 0;
 		}
 
@@ -2875,7 +2878,7 @@ namespace pvpgn
 				return -1;
 			}
 
-			std::strcpy(msgtemp0, localize(c, "Banned users:").c_str());
+			std::snprintf(msgtemp0, sizeof msgtemp0, "%s", localize(c, "Banned users:").c_str());
 			i = std::strlen(msgtemp0);
 			LIST_TRAVERSE_CONST(channel_get_banlist(channel), curr)
 			{
@@ -2902,8 +2905,11 @@ namespace pvpgn
 			t_connection *c = (t_connection*)data;
 
 			tm = std::localtime(&date);
-			if (tm) std::strftime(strdate, 64, "%B %d, %Y", tm);
-			else std::strcpy(strdate, localize(c, "(invalid date)").c_str());
+			if (tm)
+				std::strftime(strdate, 64, "%B %d, %Y", tm);
+			else
+				std::snprintf(strdate, sizeof strdate, "%s", localize(c, "(invalid date)").c_str());
+
 			message_send_text(c, message_type_info, c, strdate);
 
 			for (p = lstr_get_str(lstr); *p;) {
@@ -3158,13 +3164,13 @@ namespace pvpgn
 			temp = accountlist_create_account(username, hash_get_str(passhash));
 			if (!temp) {
 				message_send_text(c, message_type_error, c, localize(c, "Failed to create account!"));
-				eventlog(eventlog_level_debug, __FUNCTION__, "[%d] account \"%s\" not created (failed)", conn_get_socket(c), username);
+				eventlog(eventlog_level_debug, __FUNCTION__, "[{}] account \"{}\" not created (failed)", conn_get_socket(c), username);
 				return -1;
 			}
 
 			msgtemp = localize(c, "Account {} created.", account_get_uid(temp));
 			message_send_text(c, message_type_info, c, msgtemp);
-			eventlog(eventlog_level_debug, __FUNCTION__, "[%d] account \"%s\" created", conn_get_socket(c), username);
+			eventlog(eventlog_level_debug, __FUNCTION__, "[{}] account \"{}\" created", conn_get_socket(c), username);
 
 			return 0;
 		}
@@ -3204,7 +3210,7 @@ namespace pvpgn
 			if ((temp == account && account_get_auth_changepass(account) == 0) || /* default to true */
 				(temp != account && !(account_get_command_groups(conn_get_account(c)) & command_get_group("/admin-chpass")))) /* default to false */
 			{
-				eventlog(eventlog_level_info, __FUNCTION__, "[%d] password change for \"%s\" refused (no change access)", conn_get_socket(c), username);
+				eventlog(eventlog_level_info, __FUNCTION__, "[{}] password change for \"{}\" refused (no change access)", conn_get_socket(c), username);
 				message_send_text(c, message_type_error, c, localize(c, "Only admins may change passwords for other accounts."));
 				return -1;
 			}
@@ -3258,7 +3264,6 @@ namespace pvpgn
 			t_connection * conn;
 			char           name[19];
 			char const *   channel_name;
-			char const *   game_name;
 			char           clienttag_str[5];
 
 			if (!prefs_get_enable_conn_all() && !(account_get_command_groups(conn_get_account(c)) & command_get_group("/admin-con"))) /* default to false */
@@ -3295,17 +3300,18 @@ namespace pvpgn
 			LIST_TRAVERSE_CONST(connlist(), curr)
 			{
 				conn = (t_connection*)elem_get_data(curr);
-				if (conn_get_account(conn))
-					std::sprintf(name, "\"%.16s\"", conn_get_username(conn));
-				else
-					std::strcpy(name, localize(c, "(none)").c_str());
+				std::snprintf(name, sizeof name, "%s", conn_get_account(conn) ? conn_get_username(conn) : "(none)");
 
 				if (conn_get_channel(conn) != NULL)
 					channel_name = channel_get_name(conn_get_channel(conn));
-				else channel_name = localize(c, "none").c_str();
+				else
+					channel_name = localize(c, "none").c_str();
+
+				std::string game_name;
 				if (conn_get_game(conn) != NULL)
 					game_name = game_get_name(conn_get_game(conn));
-				else game_name = localize(c, "none").c_str();
+				else
+					game_name = localize(c, "none");
 
 				if (text[0] == '\0')
 					std::snprintf(msgtemp0, sizeof(msgtemp0), " %-6.6s %4.4s %-15.15s %9u %-16.16s %-8.8s",
@@ -3314,7 +3320,7 @@ namespace pvpgn
 					name,
 					conn_get_latency(conn),
 					channel_name,
-					game_name);
+					game_name.c_str());
 				else
 				if (prefs_get_hide_addr() && !(account_get_command_groups(conn_get_account(c)) & command_get_group("/admin-addr"))) /* default to false */
 					std::snprintf(msgtemp0, sizeof(msgtemp0), " %3d %-6.6s %-12.12s %4.4s %-15.15s 0x%08x 0x%04x %9u %-16.16s %-8.8s",
@@ -3327,7 +3333,7 @@ namespace pvpgn
 					conn_get_flags(conn),
 					conn_get_latency(conn),
 					channel_name,
-					game_name);
+					game_name.c_str());
 				else
 					std::snprintf(msgtemp0, sizeof(msgtemp0), " %3d %-6.6s %-12.12s %4.4s %-15.15s 0x%08x 0x%04x %9u %-16.16s %-8.8s %.16s",
 					conn_get_socket(conn),
@@ -3339,7 +3345,7 @@ namespace pvpgn
 					conn_get_flags(conn),
 					conn_get_latency(conn),
 					channel_name,
-					game_name,
+					game_name.c_str(),
 					addr_num_to_addr_str(conn_get_addr(conn), conn_get_port(conn)));
 
 				message_send_text(c, message_type_info, c, msgtemp0);
@@ -3353,7 +3359,6 @@ namespace pvpgn
 			char const * dest;
 			t_account *    account;
 			t_connection * conn;
-			char const *   ip;
 			char *         tok;
 			t_clanmember * clanmemb;
 			std::time_t      then;
@@ -3447,9 +3452,11 @@ namespace pvpgn
 				message_send_text(c, message_type_info, c, msgtemp);
 			}
 
-			if (!(ip = account_get_ll_ip(account)) ||
+			const char* const ip_tmp = account_get_ll_ip(account);
+			std::string ip(ip_tmp ? ip_tmp : "");
+			if (ip.empty() == true ||
 				!(account_get_command_groups(conn_get_account(c)) & command_get_group("/admin-addr"))) /* default to false */
-				ip = localize(c, "unknown").c_str();
+				ip = localize(c, "unknown");
 
 			{
 
@@ -3515,7 +3522,7 @@ namespace pvpgn
 			t_connection *  tc;
 			char const *    nick;
 
-			std::strcpy(msgtemp0, localize(c, "Currently logged on Administrators:").c_str());
+			std::snprintf(msgtemp0, sizeof msgtemp0, "%s", localize(c, "Currently logged on Administrators:").c_str());
 			i = std::strlen(msgtemp0);
 			LIST_TRAVERSE_CONST(connlist(), curr)
 			{
@@ -3547,7 +3554,7 @@ namespace pvpgn
 		static int _handle_quit_command(t_connection * c, char const *text)
 		{
 			if (conn_get_game(c))
-				eventlog(eventlog_level_warn, __FUNCTION__, "[%d] user '%s' tried to disconnect while in game, cheat attempt ?", conn_get_socket(c), conn_get_loggeduser(c));
+				eventlog(eventlog_level_warn, __FUNCTION__, "[{}] user '{}' tried to disconnect while in game, cheat attempt ?", conn_get_socket(c), conn_get_loggeduser(c));
 			else {
 				message_send_text(c, message_type_info, c, localize(c, "Connection closed."));
 				conn_set_state(c, conn_state_destroy);
@@ -4660,29 +4667,31 @@ namespace pvpgn
 				msgtemp = localize(c, "Key set successfully for");
 				msgtemp += msgtemp0;
 				message_send_text(c, message_type_error, c, msgtemp);
-				eventlog(eventlog_level_warn, __FUNCTION__, "Key set by \"%s\" for%s", account_get_name(conn_get_account(c)),msgtemp0);
+				eventlog(eventlog_level_warn, __FUNCTION__, "Key set by \"{}\" for {}", account_get_name(conn_get_account(c)),msgtemp0);
 			}
 			return 0;
 		}
 
 		static int _handle_motd_command(t_connection * c, char const *text)
 		{
-			char const * filename;
 			std::FILE *       fp;
 
-			filename = i18n_filename(prefs_get_motdfile(), conn_get_gamelang_localized(c));
+			const char* const filename = i18n_filename(prefs_get_motdfile(), conn_get_gamelang_localized(c));
 
 			if (fp = std::fopen(filename, "r"))
 			{
 				message_send_file(c, fp);
 				if (std::fclose(fp) < 0)
-					eventlog(eventlog_level_error, __FUNCTION__, "could not close motd file \"%s\" after reading (std::fopen: %s)", filename, std::strerror(errno));
+					eventlog(eventlog_level_error, __FUNCTION__, "could not close motd file \"{}\" after reading (std::fopen: {})", filename, std::strerror(errno));
 			}
 			else
 			{
-				eventlog(eventlog_level_error, __FUNCTION__, "could not open motd file \"%s\" for reading (std::fopen: %s)", filename, std::strerror(errno));
+				eventlog(eventlog_level_error, __FUNCTION__, "could not open motd file \"{}\" for reading (std::fopen: {})", filename, std::strerror(errno));
 				message_send_text(c, message_type_error, c, localize(c, "Unable to open motd."));
 			}
+
+			xfree((void*)filename);
+
 			return 0;
 		}
 
@@ -4690,10 +4699,8 @@ namespace pvpgn
 		{
 			/* handle /tos - shows terms of service by user request -raistlinthewiz */
 
-			const char * filename = NULL;
+			const char* const filename = i18n_filename(prefs_get_tosfile(), conn_get_gamelang_localized(c));
 			std::FILE * fp;
-
-			filename = i18n_filename(prefs_get_tosfile(), conn_get_gamelang_localized(c));
 
 			/* FIXME: if user enters relative path to tos file in config,
 			   above routine will fail */
@@ -4737,13 +4744,16 @@ namespace pvpgn
 
 
 				if (std::fclose(fp) < 0)
-					eventlog(eventlog_level_error, __FUNCTION__, "could not close tos file \"%s\" after reading (std::fopen: %s)", filename, std::strerror(errno));
+					eventlog(eventlog_level_error, __FUNCTION__, "could not close tos file \"{}\" after reading (std::fopen: {})", filename, std::strerror(errno));
 			}
 			else
 			{
-				eventlog(eventlog_level_error, __FUNCTION__, "could not open tos file \"%s\" for reading (std::fopen: %s)", filename, std::strerror(errno));
+				eventlog(eventlog_level_error, __FUNCTION__, "could not open tos file \"{}\" for reading (std::fopen: {})", filename, std::strerror(errno));
 				message_send_text(c, message_type_error, c, localize(c, "Unable to send TOS (Terms of Service)."));
 			}
+
+			xfree((void*)filename);
+
 			return 0;
 
 		}
@@ -4936,7 +4946,7 @@ namespace pvpgn
 			oldflags = channel_get_flags(channel);
 
 			if (channel_set_flags(channel, oldflags ^ channel_flags_moderated)) {
-				eventlog(eventlog_level_error, __FUNCTION__, "could not set channel %s flags", channel_get_name(channel));
+				eventlog(eventlog_level_error, __FUNCTION__, "could not set channel {} flags", channel_get_name(channel));
 				message_send_text(c, message_type_error, c, localize(c, "Unable to change channel flags."));
 				return -1;
 			}

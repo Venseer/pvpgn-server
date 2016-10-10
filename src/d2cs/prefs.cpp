@@ -21,6 +21,7 @@
 #include "prefs.h"
 
 #include <cstdio>
+#include <ctime>
 
 #include "common/conf.h"
 #include "common/eventlog.h"
@@ -330,12 +331,12 @@ extern int d2cs_prefs_load(char const * filename)
 
     fd = std::fopen(filename,"rt");
     if (!fd) {
-        eventlog(eventlog_level_error,__FUNCTION__,"could not open file '%s'",filename);
+        eventlog(eventlog_level_error,__FUNCTION__,"could not open file '{}'",filename);
         return -1;
     }
 
     if (conf_load_file(fd,prefs_conf_table)) {
-        eventlog(eventlog_level_error,__FUNCTION__,"error loading config file '%s'",filename);
+        eventlog(eventlog_level_error,__FUNCTION__,"error loading config file '{}'",filename);
         std::fclose(fd);
         return -1;
     }
@@ -1132,7 +1133,7 @@ static int conf_setdef_account_allowed_symbols(void)
 }
 
 
-extern unsigned int prefs_get_ladder_start_time(void)
+extern std::time_t prefs_get_ladder_start_time()
 {
 	return prefs_conf.ladder_start_time;
 }

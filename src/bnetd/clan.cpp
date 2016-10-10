@@ -16,12 +16,17 @@
 #define CLAN_INTERNAL_ACCESS
 #include "common/setup_before.h"
 #include "clan.h"
+
+#include <cstdint>
+
 #include "compat/strcasecmp.h"
 #include "compat/strncasecmp.h"
 #include "compat/pdir.h"
+
 #ifdef HAVE_SYS_TYPES_H
 # include <sys/types.h>
 #endif
+
 #include "common/packet.h"
 #include "common/bnet_protocol.h"
 #include "common/util.h"
@@ -31,6 +36,7 @@
 #include "common/proginfo.h"
 #include "common/bn_type.h"
 #include "common/xalloc.h"
+
 #include "connection.h"
 #include "anongame.h"
 #include "prefs.h"
@@ -42,7 +48,7 @@
 #include "anongame.h"
 #include "storage.h"
 #include "server.h"
-#include "compat/uint.h"
+
 #include "common/setup_after.h"
 
 namespace pvpgn
@@ -422,7 +428,7 @@ namespace pvpgn
 				return -1;
 			offset = sizeof(packet->u.client_clan_motdchg);
 			motd = packet_get_str_const(packet, offset, CLAN_MOTD_MAX);
-			eventlog(eventlog_level_trace, __FUNCTION__, "[%d] got W3XP_CLAN_MOTDCHG packet : %s", conn_get_socket(c), motd);
+			eventlog(eventlog_level_trace, __FUNCTION__, "[{}] got W3XP_CLAN_MOTDCHG packet : {}", conn_get_socket(c), motd);
 			if (clan_set_motd(clan, motd) != 0)
 			{
 				eventlog(eventlog_level_error, __FUNCTION__, "Failed to set clan motd.");
@@ -825,7 +831,7 @@ namespace pvpgn
 						eventlog(eventlog_level_error, __FUNCTION__, "found NULL entry in list");
 						continue;
 					}
-					eventlog(eventlog_level_trace, __FUNCTION__, "trace %d", clan->clanid);
+					eventlog(eventlog_level_trace, __FUNCTION__, "trace {}", clan->clanid);
 					if (clan->created && (clan->clanid == cid))
 						return clan;
 				}

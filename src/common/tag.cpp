@@ -121,7 +121,7 @@ namespace pvpgn
 
 		len = std::strlen(tag_str);
 		if (len != 4)
-			eventlog(eventlog_level_warn, __FUNCTION__, "got unusual sized clienttag '%s'", tag_str);
+			eventlog(eventlog_level_warn, __FUNCTION__, "got unusual sized clienttag '{}'", tag_str);
 
 		for (i = 0; i < len && i < 4; i++)
 			temp_str[i] = safe_toupper(tag_str[i]);
@@ -642,7 +642,7 @@ namespace pvpgn
 			/*        case tag_wol_locale_turkey:
 						return trTR*/
 		default:
-			WARN1("%d is not defined", locale);
+			WARN1("{} is not defined", locale);
 			return GAMELANG_ENGLISH_UINT;
 		}
 	}

@@ -21,10 +21,12 @@
 #include "common/setup_before.h"
 #include "irc.h"
 
-#include <cstring>
+#include <cinttypes>
+#include <cstdint>
 #include <cstdio>
-#include <ctime>
 #include <cstdlib>
+#include <cstring>
+#include <ctime>
 
 #include "compat/strcasecmp.h"
 
@@ -103,7 +105,7 @@ namespace pvpgn
 			else
 					std::snprintf(data, sizeof(data), ":%s %s %s", ircname, command, nick);
 
-			DEBUG2("[%d] sent \"%s\"", conn_get_socket(conn), data);
+			DEBUG2("[{}] sent \"{}\"", conn_get_socket(conn), data);
 			std::strcat(data, "\r\n");
 			packet_set_size(p, 0);
 			packet_append_data(p, data, std::strlen(data));
@@ -121,7 +123,7 @@ namespace pvpgn
 				return -1;
 			}
 			if ((code > 999) || (code < 0)) { /* more than 3 digits or negative */
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid message code (%d)", code);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid message code ({})", code);
 				return -1;
 			}
 			std::sprintf(temp, "%03u", code);
@@ -155,7 +157,7 @@ namespace pvpgn
 				std::sprintf(data, "PING :%s", server_get_hostname());
 			else
 				eventlog(eventlog_level_error, __FUNCTION__, "maximum message length exceeded");
-			eventlog(eventlog_level_debug, __FUNCTION__, "[%d] sent \"%s\"", conn_get_socket(conn), data);
+			eventlog(eventlog_level_debug, __FUNCTION__, "[{}] sent \"{}\"", conn_get_socket(conn), data);
 			std::strcat(data, "\r\n");
 			packet_set_size(p, 0);
 			packet_append_data(p, data, std::strlen(data));
@@ -186,7 +188,7 @@ namespace pvpgn
 				std::sprintf(data, ":%s PONG %s :%s", server_get_hostname(), server_get_hostname(), params);
 			else
 				std::sprintf(data, ":%s PONG %s", server_get_hostname(), server_get_hostname());
-			eventlog(eventlog_level_debug, __FUNCTION__, "[%d] sent \"%s\"", conn_get_socket(conn), data);
+			eventlog(eventlog_level_debug, __FUNCTION__, "[%d] sent \"{}\"", conn_get_socket(conn), data);
 			std::strcat(data, "\r\n");
 			packet_set_size(p, 0);
 			packet_append_data(p, data, std::strlen(data));
@@ -606,7 +608,7 @@ namespace pvpgn
 				else
 					std::sprintf(msg, "%s %s %s%s%s", e1, e2, toname, temp, e4);
 
-				DEBUG2("[%d] sent \"%s\"", conn_get_socket(dest), msg);
+				DEBUG2("[{}] sent \"{}\"", conn_get_socket(dest), msg);
 				std::strcat(msg, "\r\n");
 
 				packet_set_size(packet, 0);
@@ -945,7 +947,7 @@ namespace pvpgn
 				conn_unget_chatname(me, from.nick);
 				break;
 			default:
-				eventlog(eventlog_level_warn, __FUNCTION__, "%d not yet implemented", type);
+				eventlog(eventlog_level_warn, __FUNCTION__, "{} not yet implemented", type);
 				return -1;
 			}
 
@@ -1298,7 +1300,7 @@ namespace pvpgn
 		{
 			/* NOTE: RFC2812 doesn't seem to be very expressive about this ... */
 			if (conn_get_ircping(conn) == 0) {
-				eventlog(eventlog_level_warn, __FUNCTION__, "[%d] PONG without PING", conn_get_socket(conn));
+				eventlog(eventlog_level_warn, __FUNCTION__, "[{}] PONG without PING", conn_get_socket(conn));
 			}
 			else {
 				unsigned int val = 0;
@@ -1320,12 +1322,12 @@ namespace pvpgn
 				if (conn_get_ircping(conn) != val) {
 					if ((!(sname)) || (std::strcmp(sname, server_get_hostname()) != 0)) {
 						/* Actually the servername should not be always accepted but we aren't that pedantic :) */
-						eventlog(eventlog_level_warn, __FUNCTION__, "[%d] got bad PONG (%u!=%u && %s!=%s)", conn_get_socket(conn), val, conn_get_ircping(conn), sname, server_get_hostname());
+						eventlog(eventlog_level_warn, __FUNCTION__, "[{}] got bad PONG ({}!={} && {}!={})", conn_get_socket(conn), val, conn_get_ircping(conn), sname, server_get_hostname());
 						return -1;
 					}
 				}
 				conn_set_latency(conn, get_ticks() - conn_get_ircping(conn));
-				eventlog(eventlog_level_debug, __FUNCTION__, "[%d] latency is now %d (%u-%u)", conn_get_socket(conn), get_ticks() - conn_get_ircping(conn), get_ticks(), conn_get_ircping(conn));
+				eventlog(eventlog_level_debug, __FUNCTION__, "[{}] latency is now {} ({}-{})", conn_get_socket(conn), get_ticks() - conn_get_ircping(conn), get_ticks(), conn_get_ircping(conn));
 				conn_set_ircping(conn, 0);
 			}
 			return 0;
@@ -1442,10 +1444,15 @@ namespace pvpgn
 					std::snprintf(temp, sizeof(temp), "%s :You're not on that channel", e[0]);
 					irc_send(conn, ERR_NOTONCHANNEL, temp);
 				}
-				irc_unget_listelems(e);
 			}
 			else
 				irc_send(conn, ERR_NEEDMOREPARAMS, "TOPIC :Not enough parameters");
+
+			if (e)
+			{
+				irc_unget_listelems(e);
+			}
+
 			return 0;
 		}
 
@@ -1627,17 +1634,16 @@ namespace pvpgn
 
 		extern int _handle_time_command(t_connection * conn, int numparams, char ** params, char * text)
 		{
-			char temp[MAX_IRC_MESSAGE_LEN];
+			char temp[MAX_IRC_MESSAGE_LEN] = {}; // PELISH: According to RFC2812
 			std::time_t now;
 			char const * ircname = server_get_hostname();
 
-			/* PELISH: According to RFC2812 */
-			std::memset(temp, 0, sizeof(temp));
-
-			if ((numparams >= 1) && (params[0])) {
-				if (std::strcmp(params[0], ircname) == 0) {
+			if ((numparams >= 1) && (params[0]))
+			{
+				if (std::strcmp(params[0], ircname) == 0)
+				{
 					now = std::time(NULL);
-					std::snprintf(temp, sizeof(temp), "%s :%lu", ircname, now);
+					std::snprintf(temp, sizeof(temp), "%s :%" PRId64, ircname, static_cast<std::int64_t>(now));
 					irc_send(conn, RPL_TIME, temp);
 				}
 				else {
@@ -1648,7 +1654,7 @@ namespace pvpgn
 			else {
 				/* RPL_TIME contains time and name of this server */
 				now = std::time(NULL);
-				std::snprintf(temp, sizeof(temp), "%s :%lu", ircname, now);
+				std::snprintf(temp, sizeof(temp), "%s :%" PRId64, ircname, static_cast<std::int64_t>(now));
 				irc_send(conn, RPL_TIME, temp);
 			}
 			return 0;

@@ -21,9 +21,11 @@
 #include "common/setup_before.h"
 #include "handle_wol.h"
 
-#include <cstring>
 #include <cctype>
+#include <cinttypes>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 
 #include "compat/strcasecmp.h"
 #include "common/irc_protocol.h"
@@ -208,7 +210,6 @@ namespace pvpgn
 			char const * tempapgar;
 			char const * temphash;
 			char const * username;
-			char temp[MAX_IRC_MESSAGE_LEN];
 
 			if (!conn) {
 				ERROR0("got NULL connection");
@@ -329,7 +330,7 @@ namespace pvpgn
 				irc_send(conn, ERR_ALREADYREGISTRED, ":You are already registred");
 			}
 			else {
-				eventlog(eventlog_level_debug, __FUNCTION__, "[%d][** WOL **] got USER: user=\"%s\"", conn_get_socket(conn), user);
+				eventlog(eventlog_level_debug, __FUNCTION__, "[{}][** WOL **] got USER: user=\"{}\"", conn_get_socket(conn), user);
 
 				a = accountlist_find_account(user);
 				if (!a) {
@@ -340,6 +341,7 @@ namespace pvpgn
 					strtolower(pass);
 
 					bnet_hash(&pass_hash, std::strlen(pass), pass);
+					xfree((void *)pass);
 
 					tempacct = accountlist_create_account(user, hash_get_str(pass_hash));
 					if (!tempacct) {
@@ -347,8 +349,6 @@ namespace pvpgn
 						irc_send(conn, RPL_BAD_LOGIN, ":Account creating failed");
 						return 0;
 					}
-					if (pass)
-						xfree((void *)pass);
 
 					conn_set_user(conn, user);
 					conn_set_owner(conn, user);
@@ -397,7 +397,6 @@ namespace pvpgn
 						if (e[i][0] == '#') {
 							/* channel message */
 							t_channel * channel;
-							char msgtemp[MAX_IRC_MESSAGE_LEN];
 
 							//PELISH: We does not support talk for not inside-channel clients now but in WOL is that feature not needed
 							if (channel = conn_get_channel(conn)) {
@@ -466,11 +465,11 @@ namespace pvpgn
 			data->tcount++;
 
 			if (game_get_status(game) != game_status_open) {
-				eventlog(eventlog_level_debug, __FUNCTION__, "[%d] not listing because game is not open", conn_get_socket(data->conn));
+				eventlog(eventlog_level_debug, __FUNCTION__, "[{}] not listing because game is not open", conn_get_socket(data->conn));
 				return 0;
 			}
 			if (game_get_clienttag(game) != conn_get_clienttag(data->conn)) {
-				eventlog(eventlog_level_debug, __FUNCTION__, "[%d] not listing because game is for a different client", conn_get_socket(data->conn));
+				eventlog(eventlog_level_debug, __FUNCTION__, "[{}] not listing because game is for a different client", conn_get_socket(data->conn));
 				return 0;
 			}
 
@@ -612,7 +611,7 @@ namespace pvpgn
 				data.counter = 0;
 				data.conn = conn;
 				gamelist_traverse(&append_game_info, &data, gamelist_source_none);
-				DEBUG3("[%d] LIST sent %u of %u games", conn_get_socket(conn), data.counter, data.tcount);
+				DEBUG3("[{}] LIST sent {} of {} games", conn_get_socket(conn), data.counter, data.tcount);
 			}
 			irc_send(conn, RPL_LISTEND, ":End of LIST command");
 			return 0;
@@ -701,7 +700,6 @@ namespace pvpgn
 
 		static int _handle_verchk_command(t_connection * conn, int numparams, char ** params, char * text)
 		{
-			char temp[MAX_IRC_MESSAGE_LEN];
 			t_clienttag clienttag;
 
 			/**
@@ -723,7 +721,7 @@ namespace pvpgn
 					conn_set_clienttag(conn, clienttag);
 
 				std::string tmp(":none none none 1 " + std::string(params[0]) + " NONREQ");
-				eventlog(eventlog_level_debug, __FUNCTION__, "[** WOL **] VERCHK %s", tmp.c_str());
+				eventlog(eventlog_level_debug, __FUNCTION__, "[** WOL **] VERCHK {}", tmp.c_str());
 				irc_send(conn, RPL_VERCHK_NONREQ, tmp.c_str());
 			}
 			else
@@ -1059,7 +1057,7 @@ namespace pvpgn
 			else if ((numparams >= 7)) {
 				char ** e;
 
-				eventlog(eventlog_level_debug, __FUNCTION__, "[** WOL **] JOINGAME: * Create * (%s, %s)",
+				eventlog(eventlog_level_debug, __FUNCTION__, "[** WOL **] JOINGAME: * Create * ({}, {})",
 					params[0], params[1]);
 
 				if ((numparams == 7)) {
@@ -1075,7 +1073,7 @@ namespace pvpgn
 						clanid = clan_get_clanid(clan);
 					std::snprintf(_temp, sizeof(_temp), "%s %s %s %s %u %u %s :%s", params[1], params[2], params[3], params[4], clanid, conn_get_addr(conn), params[6], params[0]);
 				}
-				eventlog(eventlog_level_debug, __FUNCTION__, "[** WOL **] JOINGAME [Game Options] (%s)", _temp);
+				eventlog(eventlog_level_debug, __FUNCTION__, "[** WOL **] JOINGAME [Game Options] ({})", _temp);
 
 				e = irc_get_listelems(params[0]);
 				if ((e) && (e[0])) {
@@ -1091,8 +1089,9 @@ namespace pvpgn
 						gametype = game_type_ffa;
 					//    		    gametype = game_type_none;
 
-					if ((numparams >= 8) && (params[8])) {
-						strcpy(gamepass, params[8]);
+					if ((numparams >= 8) && (params[8]))
+					{
+						std::snprintf(gamepass, sizeof gamepass, "%s", params[8]);
 					}
 
 					if ((!(gamename)) || ((conn_set_game(conn, gamename, gamepass, "", gametype, 0))<0)) {
@@ -1288,15 +1287,15 @@ namespace pvpgn
 
 			if ((numparams >= 2) && (params[1])) {
 				int i;
-				char ** e;
 
 				std::memset(temp, 0, sizeof(temp));
 
-				e = irc_get_listelems(params[1]);
+				char ** e = irc_get_listelems(params[1]);
 				/* FIXME: support wildcards! */
 
 				if (!(game = conn_get_game(conn))) {
 					ERROR0("conn has not game");
+					irc_unget_listelems(e);
 					return 0;
 				}
 
@@ -1329,7 +1328,7 @@ namespace pvpgn
 
 				game_set_status(game, game_status_started);
 
-				std::snprintf(_temp_a, sizeof(_temp_a), "%u %u", game_get_id(game), game_get_start_time(game));
+				std::snprintf(_temp_a, sizeof(_temp_a), "%u %" PRId64, game_get_id(game), static_cast<std::int64_t>(game_get_start_time(game)));
 				std::strcat(temp, _temp_a);
 
 				for (i = 0; ((e) && (e[i])); i++) {
@@ -1391,12 +1390,15 @@ namespace pvpgn
 			*  :[servername] CHANCHK [channel]
 			*/
 
-			if ((numparams >= 1) && (params[0])) {
-				if ((channel = channellist_find_channel_by_name(irc_convert_ircname(params[0]), NULL, NULL))) {
-					std::strcat(temp, params[0]);
+			if ((numparams >= 1) && (params[0]))
+			{
+				if ((channel = channellist_find_channel_by_name(irc_convert_ircname(params[0]), NULL, NULL)))
+				{
+					std::snprintf(temp, sizeof temp, "%s", params[0]);
 					message_send_text(conn, message_wol_chanchk, conn, temp);
 				}
-				else {
+				else
+				{
 					/* FIXME: This is not dumped from original servers... this is probably wrong */
 					std::snprintf(temp, sizeof(temp), "%s :No such channel", params[0]);
 					irc_send(conn, ERR_NOSUCHCHANNEL, temp);
@@ -1574,6 +1576,9 @@ namespace pvpgn
 						message_send_text(user, message_type_invmsg, conn, temp);
 					}
 				}
+
+				if (e)
+					irc_unget_listelems(e);
 			}
 			else {
 				irc_send(conn, ERR_NEEDMOREPARAMS, "INVMSG :Not enough parameters");
@@ -1617,27 +1622,31 @@ namespace pvpgn
 		 */
 		static int _ladder_send(t_connection * conn, char const * command)
 		{
-			t_packet * p;
 			char data[MAX_IRC_MESSAGE_LEN + 1];
 			unsigned len = 0;
 
-			p = packet_create(packet_class_raw);
+			t_packet* const p = packet_create(packet_class_raw);
+			if (!p)
+			{
+				return -1;
+			}
 
 			if (command)
 				len = (std::strlen(command) + 6);
 
-			if (len > MAX_IRC_MESSAGE_LEN) {
-				eventlog(eventlog_level_error, __FUNCTION__, "message to send is too large (%u bytes)", len);
+			if (len > MAX_IRC_MESSAGE_LEN)
+			{
+				eventlog(eventlog_level_error, __FUNCTION__, "message to send is too large ({} bytes)", len);
+				packet_del_ref(p);
 				return -1;
 			}
-			else {
-				std::sprintf(data, "\r\n\r\n\r\n%s", command);
-				//std::sprintf(data,"%s",command);
-			}
+			
+
+			std::sprintf(data, "\r\n\r\n\r\n%s", command);
 
 			packet_set_size(p, 0);
 			packet_append_data(p, data, len);
-			eventlog(eventlog_level_debug, __FUNCTION__, "[%d] sent \"%s\"", conn_get_socket(conn), data);
+			eventlog(eventlog_level_debug, __FUNCTION__, "[{}] sent \"{}\"", conn_get_socket(conn), data);
 			conn_push_outqueue(conn, p);
 			packet_del_ref(p);
 
@@ -1744,7 +1753,7 @@ namespace pvpgn
 					// PELISH: We are not supporting ladders for all WOL clients yet
 					std::strcat(data, "\r\n");
 					_ladder_send(conn, data);
-					DEBUG1("Wants rung search for SKU %s", params[3]);
+					DEBUG1("Wants rung search for SKU {}", params[3]);
 					return 0;
 				}
 
@@ -1764,16 +1773,15 @@ namespace pvpgn
 				}
 				else {
 					/* Standard RUNG search */
-					int i;
 					unsigned start = std::atoi(params[0]);
 					unsigned count = std::atoi(params[1]);
 
-					eventlog(eventlog_level_debug, __FUNCTION__, "Start(%u) Count(%u)", start, count);
+					eventlog(eventlog_level_debug, __FUNCTION__, "Start({}) Count({})", start, count);
 
 					LadderList* ladderList = NULL;
 
 					ladderList = ladders.getLadderList(LadderKey(id, cl_tag, ladder_sort_default, ladder_time_default));
-					for (i = start; i < start + count; i++) {
+					for (unsigned int i = start; i < start + count; i++) {
 						const LadderReferencedObject* referencedObject = NULL;
 						cl_account = NULL;
 						if (((referencedObject = ladderList->getReferencedObject(i))) && (cl_account = referencedObject->getAccount())) {

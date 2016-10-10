@@ -19,8 +19,9 @@
 #include "common/setup_before.h"
 #include "anongame.h"
 
-#include <cstring>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 
 #include "compat/strdup.h"
 #include "common/packet.h"
@@ -75,14 +76,14 @@ namespace pvpgn
 
 		static int _anongame_gametype_to_queue(int type, int gametype);
 		static int _anongame_level_by_queue(t_connection * c, int queue);
-		static const char * _get_map_from_prefs(int queue, t_uint32 cur_prefs, t_clienttag clienttag);
+		static const char * _get_map_from_prefs(int queue, std::uint32_t cur_prefs, t_clienttag clienttag);
 		static unsigned int _anongame_get_gametype_tab(int queue);
 
 		static int _anongame_totalplayers(int queue);
 		static int _anongame_totalteams(int queue);
 
 		static int _handle_anongame_search(t_connection * c, t_packet const *packet);
-		static int _anongame_queue(t_connection * c, int queue, t_uint32 map_prefs);
+		static int _anongame_queue(t_connection * c, int queue, std::uint32_t map_prefs);
 		static int _anongame_compare_level(void const *a, void const *b);
 		static int _anongame_order_queue(int queue);
 		static int _anongame_match(t_connection * c, int queue);
@@ -141,7 +142,7 @@ namespace pvpgn
 			case ANONGAME_TYPE_AT_2V2V2:
 				return "AT 2v2v2";
 			default:
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid queue number %d", queue);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid queue number {}", queue);
 				return "error";
 			}
 		}
@@ -176,7 +177,7 @@ namespace pvpgn
 				case 11:
 					return ANONGAME_TYPE_3V3V3V3;
 				default:
-					eventlog(eventlog_level_error, __FUNCTION__, "invalid PG game type: %d", gametype);
+					eventlog(eventlog_level_error, __FUNCTION__, "invalid PG game type: {}", gametype);
 					return -1;
 				}
 			case 1:		/* AT */
@@ -190,13 +191,13 @@ namespace pvpgn
 				case 4:
 					return ANONGAME_TYPE_AT_2V2V2;
 				default:
-					eventlog(eventlog_level_error, __FUNCTION__, "invalid AT game type: %d", gametype);
+					eventlog(eventlog_level_error, __FUNCTION__, "invalid AT game type: {}", gametype);
 					return -1;
 				}
 			case 2:		/* TY */
 				return ANONGAME_TYPE_TY;
 			default:
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid type: %d", type);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid type: {}", type);
 				return -1;
 			}
 		}
@@ -230,12 +231,12 @@ namespace pvpgn
 			case ANONGAME_TYPE_TY:	/* set to ((wins * 3) + ties - losses) ie. prelim score */
 				return tournament_get_player_score(conn_get_account(c));
 			default:
-				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: %d", queue);
+				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: {}", queue);
 				return -1;
 			}
 		}
 
-		static const char * _get_map_from_prefs(int queue, t_uint32 cur_prefs, t_clienttag clienttag)
+		static const char * _get_map_from_prefs(int queue, std::uint32_t cur_prefs, t_clienttag clienttag)
 		{
 			int i, j = 0;
 			const char *default_map, *selected;
@@ -250,7 +251,7 @@ namespace pvpgn
 				default_map = "Maps\\(8)PlainsOfSnow.w3m";
 				break;
 			default:
-				ERROR1("invalid clienttag: %s", tag_uint_to_str(clienttag_str, clienttag));
+				ERROR1("invalid clienttag: {}", tag_uint_to_str(clienttag_str, clienttag));
 				return "Maps\\(8)PlainsOfSnow.w3m";
 			}
 
@@ -269,7 +270,7 @@ namespace pvpgn
 			else
 				selected = default_map;
 
-			eventlog(eventlog_level_trace, __FUNCTION__, "got map %s from prefs", selected);
+			eventlog(eventlog_level_trace, __FUNCTION__, "got map {} from prefs", selected);
 			return selected;
 		}
 
@@ -305,7 +306,7 @@ namespace pvpgn
 			case ANONGAME_TYPE_TY:
 				return SERVER_ANONGAME_TY_STR;
 			default:
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid queue (%d)", queue);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid queue ({})", queue);
 				return 0;
 			}
 		}
@@ -340,7 +341,7 @@ namespace pvpgn
 			case ANONGAME_TYPE_TY:
 				return tournament_get_totalplayers();
 			default:
-				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: %d", queue);
+				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: {}", queue);
 				return 0;
 			}
 		}
@@ -374,7 +375,7 @@ namespace pvpgn
 			case ANONGAME_TYPE_TY:
 				return 2;		/* fixme: does not support 2v2v2 - tournament_get_totalteams() */
 			default:
-				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: %d", queue);
+				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: {}", queue);
 				return 0;
 			}
 		}
@@ -386,12 +387,12 @@ namespace pvpgn
 			t_packet *rpacket;
 			t_connection *tc[6];
 			t_anongame *a, *ta;
-			t_uint8 teamsize = 0;
-			t_uint8 option = bn_byte_get(packet->u.client_findanongame.option);
+			std::uint8_t teamsize = 0;
+			std::uint8_t option = bn_byte_get(packet->u.client_findanongame.option);
 
 			if (!(a = conn_get_anongame(c))) {
 				if (!(a = conn_create_anongame(c))) {
-					eventlog(eventlog_level_error, __FUNCTION__, "[%d] conn_create_anongame failed", conn_get_socket(c));
+					eventlog(eventlog_level_error, __FUNCTION__, "[{}] conn_create_anongame failed", conn_get_socket(c));
 					return -1;
 				}
 			}
@@ -425,13 +426,13 @@ namespace pvpgn
 				a->gametype = bn_byte_get(packet->u.client_findanongame.gametype);
 				break;
 			default:
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid search option (%d)", option);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid search option ({})", option);
 				return -1;
 			}
 
 			if (option != CLIENT_FINDANONGAME_AT_SEARCH)
 			if ((a->queue = _anongame_gametype_to_queue(a->type, a->gametype)) < 0) {
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid queue: %d", a->queue);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid queue: {}", a->queue);
 				return -1;
 			}
 
@@ -455,14 +456,14 @@ namespace pvpgn
 			case CLIENT_FINDANONGAME_AT_INVITER_SEARCH:
 				for (i = 0; i < teamsize; i++) {	/* assign player conns to tc[] array */
 					if (!(tc[i] = _connlist_find_connection_by_uid(bn_int_get(packet->u.client_findanongame_at_inv.info[i])))) {
-						eventlog(eventlog_level_error, __FUNCTION__, "[%d] got NULL connection", conn_get_socket(tc[i]));
+						eventlog(eventlog_level_error, __FUNCTION__, "[{}] got NULL connection", conn_get_socket(tc[i]));
 						return -1;
 					}
 				}
 				for (i = 0; i < teamsize; i++) {	/* assign info from inviter to other team players */
 					if (!(ta = conn_get_anongame(tc[i]))) {
 						if (!(ta = conn_create_anongame(tc[i]))) {
-							eventlog(eventlog_level_error, __FUNCTION__, "[%d] conn_create_anongame failed", conn_get_socket(tc[i]));
+							eventlog(eventlog_level_error, __FUNCTION__, "[{}] conn_create_anongame failed", conn_get_socket(tc[i]));
 							return -1;
 						}
 					}
@@ -483,7 +484,7 @@ namespace pvpgn
 			case CLIENT_FINDANONGAME_AT_SEARCH:
 				for (i = 0; i < teamsize; i++) {	/* assign player conns to tc[] array */
 					if (!(tc[i] = _connlist_find_connection_by_uid(bn_int_get(packet->u.client_findanongame_at.info[i])))) {
-						eventlog(eventlog_level_error, __FUNCTION__, "[%d] got NULL connection", conn_get_socket(tc[i]));
+						eventlog(eventlog_level_error, __FUNCTION__, "[{}] got NULL connection", conn_get_socket(tc[i]));
 						return -1;
 					}
 				}
@@ -499,7 +500,7 @@ namespace pvpgn
 				a->tc[0] = c;
 				break;
 			default:
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid search option (%d)", option);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid search option ({})", option);
 				return -1;
 			}
 
@@ -518,7 +519,7 @@ namespace pvpgn
 			return 0;
 		}
 
-		static int _anongame_queue(t_connection * c, int queue, t_uint32 map_prefs)
+		static int _anongame_queue(t_connection * c, int queue, std::uint32_t map_prefs)
 		{
 			int level;
 			t_matchdata *md;
@@ -528,7 +529,7 @@ namespace pvpgn
 			}
 
 			if (queue >= ANONGAME_TYPES) {
-				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: %d", queue);
+				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: {}", queue);
 				return -1;
 			}
 
@@ -815,13 +816,13 @@ namespace pvpgn
 			t_elem *curr;
 			int diff;
 			t_anongame *a = conn_get_anongame(c);
-			t_uint32 cur_prefs = a->map_prefs;
+			std::uint32_t cur_prefs = a->map_prefs;
 			t_connection *inv_c[ANONGAME_MAX_TEAMS];
 			int maxlevel, minlevel;
 			int teams = 0;
 			players[queue] = 0;
 
-			eventlog(eventlog_level_trace, __FUNCTION__, "[%d] matching started for level %d player in queue %d", conn_get_socket(c), level, queue);
+			eventlog(eventlog_level_trace, __FUNCTION__, "[{}] matching started for level {} player in queue {}", conn_get_socket(c), level, queue);
 
 			diff = war3_get_maxleveldiff();
 			maxlevel = level + diff;
@@ -829,7 +830,7 @@ namespace pvpgn
 
 			while (abs(delta) < (diff + 1)) {
 				if ((level + delta <= maxlevel) && (level + delta >= minlevel)) {
-					eventlog(eventlog_level_trace, __FUNCTION__, "Traversing level %d players", level + delta);
+					eventlog(eventlog_level_trace, __FUNCTION__, "Traversing level {} players", level + delta);
 
 					LIST_TRAVERSE(matchlists[queue][level + delta], curr) {
 						md = (t_matchdata*)elem_get_data(curr);
@@ -902,7 +903,7 @@ namespace pvpgn
 					break;		/* cant really happen */
 
 			}
-			eventlog(eventlog_level_trace, __FUNCTION__, "[%d] Matching finished, not enough players (found %d)", conn_get_socket(c), players[queue]);
+			eventlog(eventlog_level_trace, __FUNCTION__, "[{}] Matching finished, not enough players (found {})", conn_get_socket(c), players[queue]);
 			mapname = NULL;
 			return 0;
 		}
@@ -913,7 +914,6 @@ namespace pvpgn
 		static int _anongame_search_found(int queue)
 		{
 			t_packet *rpacket;
-			t_anongameinfo *info;
 			t_anongame *a;
 			int i, j;
 			t_saf_pt2 *pt2;
@@ -937,9 +937,9 @@ namespace pvpgn
 				addr_destroy(routeraddr);
 			}
 
-			info = anongameinfo_create(_anongame_totalplayers(queue));
-
-			if (!info) {
+			t_anongameinfo* const info = anongameinfo_create(_anongame_totalplayers(queue));
+			if (!info)
+			{
 				eventlog(eventlog_level_error, __FUNCTION__, "anongameinfo_create failed");
 				return -1;
 			}
@@ -955,10 +955,13 @@ namespace pvpgn
 			bn_byte_set(&pt2->unknown3, 2);
 
 			/* send found packet to each of the players */
-			for (i = 0; i < players[queue]; i++) {
-				if (!(a = conn_get_anongame(player[queue][i]))) {
+			for (i = 0; i < players[queue]; i++)
+			{
+				if (!(a = conn_get_anongame(player[queue][i])))
+				{
 					eventlog(eventlog_level_error, __FUNCTION__, "no anongame struct for queued player");
 					xfree(pt2);
+					anongameinfo_destroy(info);
 					return -1;
 				}
 
@@ -972,6 +975,7 @@ namespace pvpgn
 
 				if (!(rpacket = packet_create(packet_class_bnet))) {
 					xfree(pt2);
+					anongameinfo_destroy(info);
 					return -1;
 				}
 
@@ -1011,6 +1015,8 @@ namespace pvpgn
 			/* clear queue */
 			players[queue] = 0;
 			xfree(pt2);
+			anongameinfo_destroy(info);
+
 			return 0;
 		}
 
@@ -1055,12 +1061,12 @@ namespace pvpgn
 			t_matchdata *md;
 
 			if (queue < 0) {
-				eventlog(eventlog_level_error, __FUNCTION__, "got negative queue id (%d)", queue);
+				eventlog(eventlog_level_error, __FUNCTION__, "got negative queue id ({})", queue);
 				return -1;
 			}
 
 			if (queue >= ANONGAME_TYPES) {
-				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: %d", queue);
+				eventlog(eventlog_level_error, __FUNCTION__, "unknown queue: {}", queue);
 				return -1;
 			}
 
@@ -1081,7 +1087,7 @@ namespace pvpgn
 				LIST_TRAVERSE(matchlists[queue][i], curr) {
 					md = (t_matchdata*)elem_get_data(curr);
 					if (md->c == c) {
-						eventlog(eventlog_level_trace, __FUNCTION__, "unqueued player [%d] level %d", conn_get_socket(c), i);
+						eventlog(eventlog_level_trace, __FUNCTION__, "unqueued player [{}] level {}", conn_get_socket(c), i);
 						list_remove_elem(matchlists[queue][i], &curr);
 						xfree(md);
 						return 0;
@@ -1095,7 +1101,7 @@ namespace pvpgn
 			 * [Omega]
 			 */
 			if (anongame_arranged(queue) == 0) {
-				eventlog(eventlog_level_trace, __FUNCTION__, "[%d] player not found in \"%s\" queue", conn_get_socket(c), _anongame_queue_to_string(queue));
+				eventlog(eventlog_level_trace, __FUNCTION__, "[{}] player not found in \"{}\" queue", conn_get_socket(c), _anongame_queue_to_string(queue));
 				return -1;
 			}
 
@@ -1149,13 +1155,13 @@ namespace pvpgn
 			for (i = 0; i < anongame_get_totalplayers(anongame); i++) {
 				if ((wins[i] > losses[i])) {
 					if ((anoninfo->result[i] != W3_GAMERESULT_WIN)) {
-						eventlog(eventlog_level_trace, __FUNCTION__, "player %d reported DISC/LOSS for self, but others agree on WIN", i + 1);
+						eventlog(eventlog_level_trace, __FUNCTION__, "player {} reported DISC/LOSS for self, but others agree on WIN", i + 1);
 						anoninfo->result[i] = W3_GAMERESULT_WIN;
 					}
 				}
 				else {
 					if ((anoninfo->result[i] != W3_GAMERESULT_LOSS)) {
-						eventlog(eventlog_level_trace, __FUNCTION__, "player %d reported DISC/WIN for self, but others agree on LOSS", i + 1);
+						eventlog(eventlog_level_trace, __FUNCTION__, "player {} reported DISC/WIN for self, but others agree on LOSS", i + 1);
 						anoninfo->result[i] = W3_GAMERESULT_LOSS;
 					}
 				}
@@ -1173,8 +1179,8 @@ namespace pvpgn
 			t_anongame *a = conn_get_anongame(gamec);
 			int tp = anongame_get_totalplayers(a);
 			int oppon_level[ANONGAME_MAX_GAMECOUNT];
-			t_uint8 gametype = a->queue;
-			t_uint8 plnum = a->playernum;
+			std::uint8_t gametype = a->queue;
+			std::uint8_t plnum = a->playernum;
 			t_clienttag ct = conn_get_clienttag(c);
 			int tt = _anongame_totalteams(gametype);
 
@@ -1424,7 +1430,7 @@ namespace pvpgn
 			}
 
 			if (plnum < 0 || plnum > 7 || plnum >= a->info->totalplayers) {
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid plnum: %d", plnum);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid plnum: {}", plnum);
 				return NULL;
 			}
 
@@ -1440,7 +1446,7 @@ namespace pvpgn
 			return a->count;
 		}
 
-		extern t_uint32 anongame_get_id(t_anongame * a)
+		extern std::uint32_t anongame_get_id(t_anongame * a)
 		{
 			if (!a) {
 				eventlog(eventlog_level_error, __FUNCTION__, "got NULL anongame");
@@ -1458,7 +1464,7 @@ namespace pvpgn
 			return a->tc[tpnumber];
 		}
 
-		extern t_uint32 anongame_get_race(t_anongame * a)
+		extern std::uint32_t anongame_get_race(t_anongame * a)
 		{
 			if (!a) {
 				eventlog(eventlog_level_error, __FUNCTION__, "got NULL anongame");
@@ -1467,7 +1473,7 @@ namespace pvpgn
 			return a->race;
 		}
 
-		extern t_uint32 anongame_get_handle(t_anongame * a)
+		extern std::uint32_t anongame_get_handle(t_anongame * a)
 		{
 			if (!a) {
 				eventlog(eventlog_level_error, __FUNCTION__, "got NULL anongame");
@@ -1503,7 +1509,7 @@ namespace pvpgn
 			return a->joined;
 		}
 
-		extern t_uint8 anongame_get_playernum(t_anongame * a)
+		extern std::uint8_t anongame_get_playernum(t_anongame * a)
 		{
 			if (!a) {
 				eventlog(eventlog_level_error, __FUNCTION__, "got NULL anongame");
@@ -1512,7 +1518,7 @@ namespace pvpgn
 			return a->playernum;
 		}
 
-		extern t_uint8 anongame_get_queue(t_anongame * a)
+		extern std::uint8_t anongame_get_queue(t_anongame * a)
 		{
 			if (!a) {
 				eventlog(eventlog_level_error, __FUNCTION__, "got NULL anongame");
@@ -1534,7 +1540,7 @@ namespace pvpgn
 			}
 
 			if (a->playernum < 1 || a->playernum > ANONGAME_MAX_GAMECOUNT) {
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid playernum: %d", a->playernum);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid playernum: {}", a->playernum);
 				return;
 			}
 
@@ -1553,14 +1559,14 @@ namespace pvpgn
 			}
 
 			if (a->playernum < 1 || a->playernum > ANONGAME_MAX_GAMECOUNT) {
-				eventlog(eventlog_level_error, __FUNCTION__, "invalid playernum: %d", a->playernum);
+				eventlog(eventlog_level_error, __FUNCTION__, "invalid playernum: {}", a->playernum);
 				return;
 			}
 
 			a->info->results[a->playernum - 1] = results;
 		}
 
-		extern void anongame_set_handle(t_anongame * a, t_uint32 h)
+		extern void anongame_set_handle(t_anongame * a, std::uint32_t h)
 		{
 			if (!a) {
 				eventlog(eventlog_level_error, __FUNCTION__, "got NULL anongame");
@@ -1617,23 +1623,23 @@ namespace pvpgn
 			t_connection *gamec;
 			char const *username;
 			t_anongame *a = NULL;
-			t_uint8 gametype, plnum;
+			std::uint8_t gametype, plnum;
 			int tp, i;
 
 			if (!c) {
-				eventlog(eventlog_level_error, __FUNCTION__, "[%d] got NULL connection", conn_get_socket(c));
+				eventlog(eventlog_level_error, __FUNCTION__, "[{}] got NULL connection", conn_get_socket(c));
 				return -1;
 			}
 			if (!packet) {
-				eventlog(eventlog_level_error, __FUNCTION__, "[%d] got NULL packet", conn_get_socket(c));
+				eventlog(eventlog_level_error, __FUNCTION__, "[{}] got NULL packet", conn_get_socket(c));
 				return -1;
 			}
 			if (packet_get_class(packet) != packet_class_w3route) {
-				eventlog(eventlog_level_error, __FUNCTION__, "[%d] got bad packet (class %d)", conn_get_socket(c), packet_get_class(packet));
+				eventlog(eventlog_level_error, __FUNCTION__, "[{}] got bad packet (class {})", conn_get_socket(c), packet_get_class(packet));
 				return -1;
 			}
 			if (conn_get_state(c) != conn_state_connected) {
-				eventlog(eventlog_level_error, __FUNCTION__, "[%d] not connected", conn_get_socket(c));
+				eventlog(eventlog_level_error, __FUNCTION__, "[{}] not connected", conn_get_socket(c));
 				return -1;
 			}
 
@@ -1641,25 +1647,25 @@ namespace pvpgn
 			if (packet_get_type(packet) == CLIENT_W3ROUTE_REQ) {
 				t_connection *oldc;
 
-				eventlog(eventlog_level_trace, __FUNCTION__, "[%d] sizeof t_client_w3route_req %lu", conn_get_socket(c), sizeof(t_client_w3route_req));
+				eventlog(eventlog_level_trace, __FUNCTION__, "[{}] sizeof t_client_w3route_req {}", conn_get_socket(c), sizeof(t_client_w3route_req));
 				username = packet_get_str_const(packet, sizeof(t_client_w3route_req), MAX_USERNAME_LEN);
-				eventlog(eventlog_level_info, __FUNCTION__, "[%d] got username '%s'", conn_get_socket(c), username);
+				eventlog(eventlog_level_info, __FUNCTION__, "[{}] got username '{}'", conn_get_socket(c), username);
 				gamec = connlist_find_connection_by_accountname(username);
 
 				if (!gamec) {
-					eventlog(eventlog_level_info, __FUNCTION__, "[%d] no game connection found for this w3route connection; closing", conn_get_socket(c));
+					eventlog(eventlog_level_info, __FUNCTION__, "[{}] no game connection found for this w3route connection; closing", conn_get_socket(c));
 					conn_set_state(c, conn_state_destroy);
 					return 0;
 				}
 
 				if (!(a = conn_get_anongame(gamec))) {
-					eventlog(eventlog_level_info, __FUNCTION__, "[%d] no anongame struct for game connection", conn_get_socket(c));
+					eventlog(eventlog_level_info, __FUNCTION__, "[{}] no anongame struct for game connection", conn_get_socket(c));
 					conn_set_state(c, conn_state_destroy);
 					return 0;
 				}
 
 				if (bn_int_get((unsigned char const *)packet->u.data + sizeof(t_client_w3route_req)+std::strlen(username) + 2) != anongame_get_id(a)) {
-					eventlog(eventlog_level_info, __FUNCTION__, "[%d] client sent wrong id for user '%s', closing connection", conn_get_socket(c), username);
+					eventlog(eventlog_level_info, __FUNCTION__, "[{}] client sent wrong id for user '{}', closing connection", conn_get_socket(c), username);
 					conn_set_state(c, conn_state_destroy);
 					return 0;
 				}
@@ -1671,7 +1677,7 @@ namespace pvpgn
 				}
 
 				if (conn_set_routeconn(c, gamec) < 0 || conn_set_routeconn(gamec, c) < 0) {
-					eventlog(eventlog_level_error, __FUNCTION__, "[%d] conn_set_routeconn failed", conn_get_socket(c));
+					eventlog(eventlog_level_error, __FUNCTION__, "[{}] conn_set_routeconn failed", conn_get_socket(c));
 					return -1;
 				}
 
@@ -1687,7 +1693,7 @@ namespace pvpgn
 				anongame_set_handle(a, bn_int_get(packet->u.client_w3route_req.handle));
 
 				if (!(rpacket = packet_create(packet_class_w3route))) {
-					eventlog(eventlog_level_error, __FUNCTION__, "[%d] packet_create failed", conn_get_socket(c));
+					eventlog(eventlog_level_error, __FUNCTION__, "[{}] packet_create failed", conn_get_socket(c));
 					return -1;
 				}
 
@@ -1716,12 +1722,12 @@ namespace pvpgn
 			}
 
 			if (!gamec) {
-				eventlog(eventlog_level_info, __FUNCTION__, "[%d] no game connection found for this w3route connection", conn_get_socket(c));
+				eventlog(eventlog_level_info, __FUNCTION__, "[{}] no game connection found for this w3route connection", conn_get_socket(c));
 				return 0;
 			}
 
 			if (!a) {
-				eventlog(eventlog_level_info, __FUNCTION__, "[%d] no anongame struct found for this w3route connection", conn_get_socket(c));
+				eventlog(eventlog_level_info, __FUNCTION__, "[{}] no anongame struct found for this w3route connection", conn_get_socket(c));
 				return 0;
 			}
 
@@ -1755,10 +1761,10 @@ namespace pvpgn
 												   else		/* own result is always stored as first result */
 													   result = gameresult_get_player_result(gameresult, 0);
 
-												   eventlog(eventlog_level_trace, __FUNCTION__, "[%d] got W3ROUTE_GAMERESULT: %08x", conn_get_socket(c), result);
+												   eventlog(eventlog_level_trace, __FUNCTION__, "[{}] got W3ROUTE_GAMERESULT: {:08}", conn_get_socket(c), result);
 
 												   if (!inf) {
-													   eventlog(eventlog_level_error, __FUNCTION__, "[%d] NULL anongameinfo", conn_get_socket(c));
+													   eventlog(eventlog_level_error, __FUNCTION__, "[{}] NULL anongameinfo", conn_get_socket(c));
 													   return -1;
 												   }
 
@@ -1775,7 +1781,7 @@ namespace pvpgn
 															   if (ac) {
 																   /* 300 seconds or 5 minute timer */
 																   timerlist_add_timer(ac, now + (std::time_t) 300, conn_shutdown, data);
-																   eventlog(eventlog_level_trace, __FUNCTION__, "[%d] started timer to close w3route", conn_get_socket(ac));
+																   eventlog(eventlog_level_trace, __FUNCTION__, "[{}] started timer to close w3route", conn_get_socket(ac));
 															   }
 														   }
 													   }
@@ -1788,14 +1794,14 @@ namespace pvpgn
 			for (i = 0; i < tp; i++)
 			if (i + 1 != plnum && anongame_get_player(a, i))
 			if (!conn_get_routeconn(anongame_get_player(a, i)) || !conn_get_anongame(anongame_get_player(a, i))) {
-				eventlog(eventlog_level_info, __FUNCTION__, "[%d] not all players have w3route connections up yet", conn_get_socket(c));
+				eventlog(eventlog_level_info, __FUNCTION__, "[{}] not all players have w3route connections up yet", conn_get_socket(c));
 				return 0;
 			}
 
 			/* handle these packets _after_ checking for routeconns of other players */
 			switch (packet_get_type(packet)) {
 			case CLIENT_W3ROUTE_LOADINGDONE:
-				eventlog(eventlog_level_trace, __FUNCTION__, "[%d] got LOADINGDONE, playernum: %d", conn_get_socket(c), plnum);
+				eventlog(eventlog_level_trace, __FUNCTION__, "[{}] got LOADINGDONE, playernum: {}", conn_get_socket(c), plnum);
 
 				anongame_set_loaded(a, 1);
 
@@ -1803,7 +1809,7 @@ namespace pvpgn
 					if (!anongame_get_player(a, i))	/* ignore disconnected players */
 						continue;
 					if (!(rpacket = packet_create(packet_class_w3route))) {
-						eventlog(eventlog_level_error, __FUNCTION__, "[%d] packet_create failed", conn_get_socket(c));
+						eventlog(eventlog_level_error, __FUNCTION__, "[{}] packet_create failed", conn_get_socket(c));
 						return -1;
 					}
 					packet_set_size(rpacket, sizeof(t_server_w3route_loadingack));
@@ -1823,7 +1829,7 @@ namespace pvpgn
 						continue;
 
 					if (!(rpacket = packet_create(packet_class_w3route))) {
-						eventlog(eventlog_level_error, __FUNCTION__, "[%d] packet_create failed", conn_get_socket(c));
+						eventlog(eventlog_level_error, __FUNCTION__, "[{}] packet_create failed", conn_get_socket(c));
 						return -1;
 					}
 
@@ -1837,11 +1843,11 @@ namespace pvpgn
 				break;
 
 			case CLIENT_W3ROUTE_ABORT:
-				eventlog(eventlog_level_debug, __FUNCTION__, "[%d] got W3ROUTE_ABORT", conn_get_socket(c));
+				eventlog(eventlog_level_debug, __FUNCTION__, "[{}] got W3ROUTE_ABORT", conn_get_socket(c));
 				break;
 
 			default:
-				eventlog(eventlog_level_trace, __FUNCTION__, "[%d] default: got packet type: %04x", conn_get_socket(c), packet_get_type(packet));
+				eventlog(eventlog_level_trace, __FUNCTION__, "[{}] default: got packet type: {:04}", conn_get_socket(c), packet_get_type(packet));
 			}
 
 			return 0;
@@ -1864,15 +1870,15 @@ namespace pvpgn
 			int i, j;
 
 			if (!c) {
-				eventlog(eventlog_level_error, __FUNCTION__, "[%d] got NULL connection", conn_get_socket(c));
+				eventlog(eventlog_level_error, __FUNCTION__, "[{}] got NULL connection", conn_get_socket(c));
 				return -1;
 			}
 			if (!(conn_get_routeconn(c))) {
-				eventlog(eventlog_level_info, __FUNCTION__, "[%d] no route connection", conn_get_socket(c));
+				eventlog(eventlog_level_info, __FUNCTION__, "[{}] no route connection", conn_get_socket(c));
 				return -1;
 			}
 			if (!(a = conn_get_anongame(c))) {
-				eventlog(eventlog_level_error, __FUNCTION__, "[%d] no anongame struct", conn_get_socket(c));
+				eventlog(eventlog_level_error, __FUNCTION__, "[{}] no anongame struct", conn_get_socket(c));
 				return -1;
 			}
 
@@ -1883,7 +1889,7 @@ namespace pvpgn
 			/* wait till all players have w3route conns */
 			for (i = 0; i < tp; i++)
 			if (anongame_get_player(a, i) && (!conn_get_routeconn(anongame_get_player(a, i)) || !conn_get_anongame(anongame_get_player(a, i)) || !anongame_get_joined(conn_get_anongame(anongame_get_player(a, i))))) {
-				eventlog(eventlog_level_info, __FUNCTION__, "[%d] not all players have joined game BNet yet", conn_get_socket(c));
+				eventlog(eventlog_level_info, __FUNCTION__, "[{}] not all players have joined game BNet yet", conn_get_socket(c));
 				return 0;
 			}
 
@@ -1897,15 +1903,15 @@ namespace pvpgn
 				/* send a playerinfo packet for this player to each other player */
 				for (i = 0; i < tp; i++) {
 					if (i + 1 != anongame_get_playernum(ja)) {
-						eventlog(eventlog_level_trace, __FUNCTION__, "i = %d", i);
+						eventlog(eventlog_level_trace, __FUNCTION__, "i = {}", i);
 
 						if (!(o = anongame_get_player(ja, i))) {
-							eventlog(eventlog_level_warn, __FUNCTION__, "[%d] player %d disconnected, ignoring", conn_get_socket(c), i);
+							eventlog(eventlog_level_warn, __FUNCTION__, "[{}] player {} disconnected, ignoring", conn_get_socket(c), i);
 							continue;
 						}
 
 						if (!(rpacket = packet_create(packet_class_w3route))) {
-							eventlog(eventlog_level_error, __FUNCTION__, "[%d] packet_create failed", conn_get_socket(c));
+							eventlog(eventlog_level_error, __FUNCTION__, "[{}] packet_create failed", conn_get_socket(c));
 							return -1;
 						}
 
@@ -1914,7 +1920,8 @@ namespace pvpgn
 
 
 						if (!(oa = conn_get_anongame(o))) {
-							eventlog(eventlog_level_error, __FUNCTION__, "[%d] no anongame struct of player %d", conn_get_socket(c), i);
+							eventlog(eventlog_level_error, __FUNCTION__, "[{}] no anongame struct of player {}", conn_get_socket(c), i);
+							packet_del_ref(rpacket);
 							return -1;
 						}
 
@@ -1959,7 +1966,7 @@ namespace pvpgn
 
 				/* levelinfo */
 				if (!(rpacket = packet_create(packet_class_w3route))) {
-					eventlog(eventlog_level_error, __FUNCTION__, "[%d] packet_create failed", conn_get_socket(c));
+					eventlog(eventlog_level_error, __FUNCTION__, "[{}] packet_create failed", conn_get_socket(c));
 					return -1;
 				}
 
@@ -2009,7 +2016,7 @@ namespace pvpgn
 
 				/* startgame1 */
 				if (!(rpacket = packet_create(packet_class_w3route))) {
-					eventlog(eventlog_level_error, __FUNCTION__, "[%d] packet_create failed", conn_get_socket(c));
+					eventlog(eventlog_level_error, __FUNCTION__, "[{}] packet_create failed", conn_get_socket(c));
 					return -1;
 				}
 				packet_set_size(rpacket, sizeof(t_server_w3route_startgame1));
@@ -2019,7 +2026,7 @@ namespace pvpgn
 
 				/* startgame2 */
 				if (!(rpacket = packet_create(packet_class_w3route))) {
-					eventlog(eventlog_level_error, __FUNCTION__, "[%d] packet_create failed", conn_get_socket(c));
+					eventlog(eventlog_level_error, __FUNCTION__, "[{}] packet_create failed", conn_get_socket(c));
 					return -1;
 				}
 				packet_set_size(rpacket, sizeof(t_server_w3route_startgame2));
@@ -2045,7 +2052,7 @@ namespace pvpgn
 				default_map = "xgrinder.map";
 				break;
 			default:
-				ERROR1("invalid clienttag: %s", tag_uint_to_str(clienttag_str, clienttag));
+				ERROR1("invalid clienttag: {}", tag_uint_to_str(clienttag_str, clienttag));
 				return "eb2.map";
 			}
 
@@ -2056,13 +2063,18 @@ namespace pvpgn
 				res_maps[j++] = maplists_get_map(queue, clienttag, i + 1);
 			}
 
+			if (j == 0)
+			{
+				eventlog(eventlog_level_error, __FUNCTION__, "j == 0; returning \"eb2.map\"");
+				return "eb2.map";
+			}
 			i = std::rand() % j;
 			if (res_maps[i])
 				selected = res_maps[i];
 			else
 				selected = default_map;
 
-			eventlog(eventlog_level_trace, __FUNCTION__, "got map %s from prefs", selected);
+			eventlog(eventlog_level_trace, __FUNCTION__, "got map {} from prefs", selected);
 			return selected;
 
 		}
