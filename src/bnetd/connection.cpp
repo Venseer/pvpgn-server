@@ -75,6 +75,7 @@
 #include "icons.h"
 #include "i18n.h"
 #include "common/setup_after.h"
+#include "prefs.h"
 
 #ifdef WITH_LUA
 #include "luainterface.h"
@@ -1261,7 +1262,10 @@ namespace pvpgn
 			if (!gamelang)
 				return; /* only war3 & w3xp have gamelang */
 
-			if (!tag_check_gamelang(gamelang)) {
+			bool found;
+			language_find_by_tag(gamelang, found);
+			if (!found)
+			{
 				eventlog(eventlog_level_warn, __FUNCTION__, "got UNKNOWN gamelang");
 				return;
 			}
@@ -2272,11 +2276,11 @@ namespace pvpgn
 			// Protection from hack attempt
 			// Limit out queue packets due to it may cause memory leak with not enough memory program crash on a server machine
 			t_queue ** q = &c->protocol.queues.outqueue;
-			if (queue_get_length((t_queue const * const *)q) > 1000)
+			if (prefs_get_packet_limit() && queue_get_length((t_queue const * const *)q) > prefs_get_packet_limit())
 			{
 				queue_clear(q);
 				conn_set_state(c, conn_state_destroy);
-				eventlog(eventlog_level_error, __FUNCTION__, "outqueue reached limit of 1000 packets (hack attempt?)");
+				eventlog(eventlog_level_error, __FUNCTION__, "outqueue reached limit of {} packets (hack attempt?)", prefs_get_packet_limit());
 				return 0;
 			}
 

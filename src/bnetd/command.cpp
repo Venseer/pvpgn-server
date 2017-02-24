@@ -271,15 +271,12 @@ namespace pvpgn
 
 			if ((game = conn_get_game(dest_c)))
 			{
-				std::string pub = localize(c, "public");
-				std::string prv = localize(c, "private");
-
 				msgtemp = localize(c, "{} {} using {} and {} currently in {} game \"{}\".",
 					namepart,
 					verb,
 					clienttag_get_title(conn_get_clienttag(dest_c)),
 					verb,
-					game_get_flag(game) == game_flag_private ? prv : pub,
+					game_get_flag(game) == game_flag_private ? localize(c, "private") : "",
 					game_get_name(game));
 			}
 			else if ((channel = conn_get_channel(dest_c)))
@@ -3114,7 +3111,7 @@ namespace pvpgn
 						}
 					}
 
-					message_send_text(c, message_type_info, c, msgtemp);
+					message_send_text(c, message_type_info, c, msgtemp0);
 				}
 			}
 
