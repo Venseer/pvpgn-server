@@ -32,6 +32,7 @@
 #include "json/json.hpp"
 
 #include "common/bn_type.h"
+#include "common/tag.h"
 #include "compat/strcasecmp.h"
 #include "common/eventlog.h"
 #include "connection.h"
@@ -46,6 +47,7 @@ namespace pvpgn
 	namespace bnetd
 	{
 		AdBannerSelector AdBannerList;
+		std::default_random_engine engine{};
 
 		bool AdBannerSelector::is_loaded() const noexcept
 		{
@@ -64,7 +66,7 @@ namespace pvpgn
 			json j;
 			try
 			{
-				j << file_stream;
+				file_stream >> j;
 			}
 			catch (const std::invalid_argument& e)
 			{
@@ -73,9 +75,9 @@ namespace pvpgn
 
 			const std::map<std::string, std::string> extension_map = {
 				{ "pcx", EXTENSIONTAG_PCX },
+				{ "smk", EXTENSIONTAG_SMK },
 				{ "mng", EXTENSIONTAG_MNG },
-				{ "png", EXTENSIONTAG_MNG },
-				{ "smk", EXTENSIONTAG_SMK }
+				{ "png", EXTENSIONTAG_MNG }
 			};
 
 			for (const auto& ad : j["ads"])
@@ -125,7 +127,7 @@ namespace pvpgn
 							throw std::runtime_error("Unknown language (" + ad["lang"].get<std::string>() + ")");
 					}
 
-					this->m_banners.push_back(AdBanner(m_banners.size(), extensiontag, ad["filename"].get<std::string>(),
+					this->m_banners.push_back(AdBanner(m_banners.size()+1, extensiontag, ad["filename"].get<std::string>(),
 						ad["url"].get<std::string>(), ctag, ltag));
 				}
 				catch (const std::runtime_error& e)
@@ -159,14 +161,35 @@ namespace pvpgn
 				return &this->m_banners.at(0);
 			default:
 			{
+				bn_int ext;
 				std::vector<std::size_t> candidates = {};
+
 				std::for_each(this->m_banners.begin(), this->m_banners.end(), 
-					[client_tag, client_lang, prev_ad_id, &candidates](const AdBanner& ad) -> void
+					[client_tag, client_lang, &candidates, &ext](const AdBanner& ad) -> void
 				{
 					if ((ad.get_client() == client_tag || ad.get_client() == 0)
-						&& (ad.get_language() == client_lang || ad.get_language() == 0)
-						&& (ad.get_id() != prev_ad_id))
+						&& (ad.get_language() == client_lang || ad.get_language() == 0))
 					{
+
+						bn_int_set(&ext, ad.get_extension_tag());
+						// Warcraft 3
+						if (client_tag == CLIENTTAG_WAR3XP_UINT || client_tag == CLIENTTAG_WARCRAFT3_UINT)
+						{
+							// ignore all formats except MNG for Warcraft 3, cause it's only one supported format
+							if (bn_int_tag_eq(ext, EXTENSIONTAG_MNG) != 0)
+							{
+								return;
+							}
+						}
+						// Starcraft, Warcraft 2, Diablo, Diablo 2
+						else
+						{
+							// ignore MNG, cause it's not supported format for other games
+							if (bn_int_tag_eq(ext, EXTENSIONTAG_MNG) == 0)
+							{
+								return;
+							}
+						}
 						candidates.push_back(ad.get_id());
 					}
 				});
@@ -176,10 +199,43 @@ namespace pvpgn
 					return nullptr;
 				}
 
-				std::default_random_engine engine {};
-				std::uniform_int_distribution<std::size_t> random(0, candidates.size() - 1);
+				const AdBanner* ad;
+				unsigned int idx = 0;
+				if (client_tag == CLIENTTAG_WAR3XP_UINT || client_tag == CLIENTTAG_WARCRAFT3_UINT)
+				{
+					// Warcraft 3 client always send prev_ad_id = 0, because of that we use random selection instead of sequence
+					std::uniform_int_distribution<std::size_t> random(0, candidates.size() - 1);
+					idx = random(engine);
+				}
+				else
+				{
+					// if prev_id in middle (for first and last idx=0)
+					if (prev_ad_id != 0 && prev_ad_id != candidates.at(candidates.size() - 1))
+					{
+						bool prev_found = false;
+						for (unsigned int i = 0; i < candidates.size(); i++)
+						{
+							if (prev_found)
+							{
+								idx = i;
+								break;
+							}
+							if (prev_ad_id == candidates.at(i))
+							{
+								prev_found = true;
+							}
+						}
+					}
+				}
+				ad = this->find(client_tag, client_lang, candidates.at(idx));
 
-				return &this->m_banners.at(candidates.at(random(engine)));
+				/*
+				char lang[5] = {};
+				eventlog(eventlog_level_trace, __FUNCTION__, "Pick ad idx={} candidates={} id=0x{:08} prev_id=0x{:08} filename=\"{}\" link=\"{}\" client=\"{}\" lang=\"{}\"",
+					idx, candidates.size(), ad->get_id(), prev_ad_id, ad->get_filename(), ad->get_url(), client_tag ? clienttag_uint_to_str(client_tag) : "NULL",
+					client_lang ? tag_uint_to_str(lang, client_lang) : "NULL");
+				*/
+				return ad;
 			}
 			}
 		}
@@ -189,8 +245,8 @@ namespace pvpgn
 			auto result = std::find_if(m_banners.begin(), m_banners.end(),
 				[client_tag, client_lang, ad_id](const AdBanner& a) -> bool
 			{
-				return a.get_client() == client_tag
-					&& a.get_language() == client_lang
+				return (a.get_client() == client_tag || a.get_client() == 0)
+					&& (a.get_language() == client_lang || a.get_language() == 0)
 					&& a.get_id() == ad_id;
 			});
 
@@ -223,6 +279,7 @@ namespace pvpgn
 				&& this->m_url.empty();
 		}
 
+		/* id starts from 1 */
 		std::size_t AdBanner::get_id() const noexcept
 		{
 			return this->m_id;

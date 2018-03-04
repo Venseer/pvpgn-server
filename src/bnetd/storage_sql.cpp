@@ -227,6 +227,7 @@ namespace pvpgn
 			t_sql_row *row;
 			char **tab;
 			unsigned int uid;
+			unsigned int num_fields;
 
 			if (!sql)
 			{
@@ -257,7 +258,7 @@ namespace pvpgn
 				std::snprintf(query, sizeof(query), "SELECT * FROM %s%s WHERE " SQL_UID_FIELD "='%u'", tab_prefix, *tab, uid);
 				eventlog(eventlog_level_trace, __FUNCTION__, "{}", query);
 
-				if ((result = sql->query_res(query)) != NULL && sql->num_rows(result) == 1 && sql->num_fields(result) > 1)
+				if ((result = sql->query_res(query)) != NULL && sql->num_rows(result) == 1 && (num_fields = sql->num_fields(result)) > 1)
 				{
 					unsigned int i;
 					t_sql_field *fields, *fentry;
@@ -278,8 +279,15 @@ namespace pvpgn
 					}
 
 					for (i = 0, fentry = fields; *fentry; fentry++, i++)
-					{			/* we have to skip "uid" */
+					{
 						char *output;
+
+						// (HarpyWar) fix for sqlite3, cause it return columns+rows in "fields", unlike only columns in other databases
+						//            and this row[i] goes beyond the bounds of the array. This restriction handles it.
+						if (i >= num_fields)
+							break;
+						
+						/* we have to skip "uid" */
 						/* we ignore the field used internally by sql */
 						if (std::strcmp(*fentry, SQL_UID_FIELD) == 0)
 							continue;
@@ -340,7 +348,7 @@ namespace pvpgn
 				return NULL;
 			}
 
-			std::snprintf(query, sizeof(query), "SELECT `%s` FROM %s%s WHERE " SQL_UID_FIELD " = %u", col, tab_prefix, tab, uid);
+			std::snprintf(query, sizeof(query), "SELECT %s FROM %s%s WHERE " SQL_UID_FIELD " = %u", col, tab_prefix, tab, uid);
 			eventlog(eventlog_level_trace, __FUNCTION__, query);
 			if ((result = sql->query_res(query)) == NULL)
 				return NULL;
@@ -451,22 +459,22 @@ namespace pvpgn
 				if (std::find(knownattributes[tab].begin(), knownattributes[tab].end(), col) != knownattributes[tab].end())
 				{
 					// append new field and value
-					queries[tab] += "`" + std::string(col) + "` = '" + std::string(escape) + "', ";
+					queries[tab] += std::string(col) + " = '" + std::string(escape) + "', ";
 
 					/* PASS NEXT CODE EXECUTION
 					(MERGED QUERIES WILL BE EXECUTED AT THE END OF THE FUNCTION) */
 					continue;
 				}
 
-				/* FIRST TIME UPDATE EACH ATTRIBUTE IN A SINGLE QUERY AND SAVE ATTRIBUTE NAME IN `knownattributes` */
-				std::snprintf(query, sizeof(query), "UPDATE %s%s SET `%s` = '%s' WHERE " SQL_UID_FIELD " = '%u'", tab_prefix, tab, col, escape, uid);
+				/* FIRST TIME UPDATE EACH ATTRIBUTE IN A SINGLE QUERY AND SAVE ATTRIBUTE NAME IN 'knownattributes' */
+				std::snprintf(query, sizeof(query), "UPDATE %s%s SET %s = '%s' WHERE " SQL_UID_FIELD " = '%u'", tab_prefix, tab, col, escape, uid);
 				eventlog(eventlog_level_trace, "db_set", "{}", query);
 
 				if (sql->query(query) || !sql->affected_rows()) {
 					char query2[512];
 
 					//	    eventlog(eventlog_level_debug, __FUNCTION__, "trying to insert new column {}", col);
-					std::snprintf(query2, sizeof(query2), "ALTER TABLE %s%s ADD COLUMN `%s` VARCHAR(128)", tab_prefix, tab, col);
+					std::snprintf(query2, sizeof(query2), "ALTER TABLE %s%s ADD COLUMN %s VARCHAR(128)", tab_prefix, tab, col);
 					eventlog(eventlog_level_trace, __FUNCTION__, "{}", query2);
 					
 					sql->query(query2);
@@ -475,7 +483,7 @@ namespace pvpgn
 					//          eventlog(eventlog_level_trace, "db_set", "retry insert query: {}", query);
 					if (sql->query(query) || !sql->affected_rows()) {
 						// Tried everything, now trying to insert that user to the table for the first time
-						std::snprintf(query2, sizeof(query2), "INSERT INTO %s%s (" SQL_UID_FIELD ",`%s`) VALUES ('%u','%s')", tab_prefix, tab, col, uid, escape);
+						std::snprintf(query2, sizeof(query2), "INSERT INTO %s%s (" SQL_UID_FIELD ",%s) VALUES ('%u','%s')", tab_prefix, tab, col, uid, escape);
 						eventlog(eventlog_level_trace, __FUNCTION__, "{}", query2);
 						//              eventlog(eventlog_level_error, __FUNCTION__, "update failed so tried INSERT for the last chance");
 						if (sql->query(query2))

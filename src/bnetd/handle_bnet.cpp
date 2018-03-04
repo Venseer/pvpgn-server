@@ -2805,28 +2805,30 @@ namespace pvpgn
 
 
 			// read text from bnmotd_w3.txt
-			char * buff;
-			std::FILE *       fp;
-
-			const char* const filename = i18n_filename(prefs_get_motdw3file(), conn_get_gamelang_localized(c));
-
-			char serverinfo[512] = {};
-			if (fp = std::fopen(filename, "r"))
 			{
-				while ((buff = file_get_line(fp)))
+				fmt::MemoryWriter serverinfo;
+
+				std::string filename = i18n_filename(prefs_get_motdw3file(), conn_get_gamelang_localized(c));
+				std::FILE* fp = std::fopen(filename.c_str(), "r");
+				if (fp)
 				{
-					char* line = message_format_line(c, buff);
-					std::snprintf(serverinfo, sizeof serverinfo, "%s\n", &line[1]);
-					xfree((void*)line);
+					while (char* buff = file_get_line(fp))
+					{
+						char* line = message_format_line(c, buff);
+						serverinfo << (line + 1) << '\n';
+						xfree((void*)line);
+					}
+
+					if (std::fclose(fp) == EOF)
+					{
+						eventlog(eventlog_level_error, __FUNCTION__, "could not close motdw3 file \"{}\" after reading (std::fopen: {})", filename, std::strerror(errno));
+					}
 				}
-				if (std::fclose(fp) < 0)
-					eventlog(eventlog_level_error, __FUNCTION__, "could not close motdw3 file \"{}\" after reading (std::fopen: {})", filename, std::strerror(errno));
+				packet_append_string(rpacket, serverinfo.c_str());
 			}
-			packet_append_string(rpacket, serverinfo);
 
 			conn_push_outqueue(c, rpacket);
 			packet_del_ref(rpacket);
-			xfree((void*)filename);
 
 			return 0;
 		}
@@ -3247,8 +3249,13 @@ namespace pvpgn
 			{
 				return 0;
 			}
-
+		
 			t_packet* const rpacket = packet_create(packet_class_bnet);
+			if (!rpacket)
+			{
+				eventlog(eventlog_level_error, __FUNCTION__, "Could not create a packet");
+				return -1;
+			}
 			packet_set_size(rpacket, sizeof(t_server_adreply));
 			packet_set_type(rpacket, SERVER_ADREPLY);
 			bn_int_set(&rpacket->u.server_adreply.adid, ad->get_id());
